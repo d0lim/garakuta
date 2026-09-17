@@ -7,7 +7,7 @@ struct NotchContentView: View {
     let widgets: WidgetRegistry
 
     var body: some View {
-        let size = model.layout.size(for: model.state)
+        let size = model.layout.size(for: model.state, compactSide: model.compactSide)
         ZStack(alignment: .top) {
             background
                 .frame(width: size.width, height: size.height)
@@ -36,6 +36,7 @@ struct NotchContentView: View {
                 .padding(.top, model.layout.topInset(for: model.state))
                 .animation(model.spring, value: model.state)
                 .animation(model.spring, value: model.layout)
+                .animation(model.spring, value: model.compactSide)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -70,19 +71,20 @@ struct NotchContentView: View {
         }
     }
 
+    /// The activity's two small views, each measured so the side areas are exactly as wide as they need to be.
     private var compactRow: some View {
         let notchWidth = model.layout.collapsedSize.width
-        let side = model.appearance.sizePreset.compactSideWidth
+        let side = model.compactSide
         let primary = activities.primary
         let secondary = activities.secondary
         return HStack(spacing: 0) {
-            HStack { Spacer(minLength: 0); primary?.compactLeading() }
+            HStack { Spacer(minLength: 0); primary?.compactLeading().fixedSize().measuringCompactContent(model: model, leading: true) }
                 .frame(width: side - 4)
             Spacer().frame(width: notchWidth + 8)
-            HStack { (secondary ?? primary)?.compactTrailing(); Spacer(minLength: 0) }
+            HStack { (secondary ?? primary)?.compactTrailing().fixedSize().measuringCompactContent(model: model, leading: false); Spacer(minLength: 0) }
                 .frame(width: side - 4)
         }
-        .frame(height: model.layout.compactSize.height)
+        .frame(height: model.layout.compactSize(side: side).height)
         .transition(.opacity)
     }
 
@@ -151,5 +153,14 @@ struct AnyInsettableShape: InsettableShape {
     func inset(by amount: CGFloat) -> AnyInsettableShape {
         let builder = pathBuilder
         return AnyInsettableShape(builder: { rect, inset in builder(rect, inset + amount) })
+    }
+}
+
+private extension View {
+    /// Reports this view's width to the model as the content of one compact side.
+    func measuringCompactContent(model: NotchPanelModel, leading: Bool) -> some View {
+        onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+            model.reportCompactContent(width: width, leading: leading)
+        }
     }
 }

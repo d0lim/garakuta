@@ -40,24 +40,33 @@ struct NotchLayout: Equatable {
         return CGSize(width: appearance.pillWidth, height: height)
     }
 
-    var compactSize: CGSize {
+    /// Narrowest a compact side can be, and the breathing room added around whatever the activity draws there.
+    static let minimumCompactSide: CGFloat = 36
+    static let compactSidePadding: CGFloat = 16
+
+    /// Width of one side area in the compact state, sized to the widest content either side shows.
+    static func compactSide(forContentWidth width: CGFloat) -> CGFloat {
+        max(minimumCompactSide, width + compactSidePadding)
+    }
+
+    /// Compact state: the collapsed shape plus one side area on each side.
+    func compactSize(side: CGFloat) -> CGSize {
         let base = collapsedSize
-        let side = appearance.sizePreset.compactSideWidth
         return CGSize(width: base.width + side * 2, height: coversMenuBar ? base.height : base.height + 8)
     }
 
     var expandedSize: CGSize {
         let s = appearance.sizePreset.expandedSize
-        return CGSize(width: max(s.width, compactSize.width), height: s.height + (coversMenuBar ? menuBarHeight : 0))
+        return CGSize(width: max(s.width, compactSize(side: Self.minimumCompactSide).width), height: s.height + (coversMenuBar ? menuBarHeight : 0))
     }
 
     /// Width available to widget pages inside the expanded panel.
     var widgetPageWidth: CGFloat { expandedSize.width - 24 }
 
-    func size(for state: NotchPanelState) -> CGSize {
+    func size(for state: NotchPanelState, compactSide: CGFloat) -> CGSize {
         switch state {
         case .collapsed: collapsedSize
-        case .compact: compactSize
+        case .compact: compactSize(side: compactSide)
         case .expanded: expandedSize
         }
     }
@@ -78,14 +87,14 @@ struct NotchLayout: Equatable {
     var centerX: CGFloat { geometry.frame.midX + appearance.xOffset }
 
     /// Window frame (AppKit coordinates) for a state, anchored top-centre. Includes the top inset.
-    func frame(for state: NotchPanelState) -> CGRect {
-        let size = size(for: state)
+    func frame(for state: NotchPanelState, compactSide: CGFloat) -> CGRect {
+        let size = size(for: state, compactSide: compactSide)
         let height = size.height + topInset(for: state)
         return CGRect(x: centerX - size.width / 2, y: topY - height, width: size.width, height: height)
     }
 
     /// Area that counts as "hovering the notch" while collapsed/compact.
-    func hoverRect(for state: NotchPanelState, padding: CGFloat) -> CGRect {
-        frame(for: state == .expanded ? .expanded : (state == .compact ? .compact : .collapsed)).insetBy(dx: -padding, dy: -padding)
+    func hoverRect(for state: NotchPanelState, compactSide: CGFloat, padding: CGFloat) -> CGRect {
+        frame(for: state, compactSide: compactSide).insetBy(dx: -padding, dy: -padding)
     }
 }

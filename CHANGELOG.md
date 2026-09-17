@@ -4,6 +4,11 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- The compact state sizes its side areas to the content they show instead of a fixed width, so a small glyph
+  adds only a little to the notch and a longer label gets the room it needs.
+
 ## [0.3.0] - 2026-09-17
 
 ### Added

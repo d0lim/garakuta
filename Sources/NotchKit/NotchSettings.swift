@@ -27,16 +27,6 @@ public struct NotchSettings: Codable, Equatable, Sendable {
             case .custom(let w, let h): CGSize(width: max(240, w), height: max(80, h))
             }
         }
-
-        /// Extra width added on each side of the notch in the compact state: room for one small glyph or a short
-        /// label on each side, no more, so the island does not balloon when an activity appears.
-        var compactSideWidth: CGFloat {
-            switch self {
-            case .compact: 52
-            case .wide: 64
-            case .custom(let w, _): max(44, min(80, w / 8))
-            }
-        }
     }
 
     public struct Appearance: Codable, Equatable, Sendable {

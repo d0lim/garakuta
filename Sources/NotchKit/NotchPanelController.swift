@@ -34,13 +34,17 @@ final class NotchPanelController {
         let layout = NotchLayout(geometry: geometry, appearance: settings.appearance(forDisplay: geometry.displayID))
         model = NotchPanelModel(displayID: geometry.displayID, layout: layout, settings: settings)
         model.onTap = { [weak self] in self?.toggle() }
+        model.onCompactSideChange = { [weak self] in
+            guard let self, model.state == .compact else { return }
+            resizePanel(to: currentFrame(for: .compact))
+        }
         makePanel(widgets: widgets)
         apply(settings: settings, geometry: geometry)
         restingStateChanged()
     }
 
     private func makePanel(widgets: WidgetRegistry) {
-        let frame = model.layout.frame(for: .collapsed)
+        let frame = currentFrame(for: .collapsed)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 2)
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
@@ -93,7 +97,7 @@ final class NotchPanelController {
         panel.sharingType = settings.hideFromCapture ? .none : .readOnly
         activities.settings = settings.liveActivities
         // Keep the window sized for the current state.
-        panel.setFrame(model.layout.frame(for: model.state), display: true)
+        panel.setFrame(currentFrame(for: model.state), display: true)
         updateVisibility()
     }
 
@@ -139,23 +143,40 @@ final class NotchPanelController {
         model.state == .expanded ? collapse() : expand(source: .click)
     }
 
-    private func transition(to new: NotchPanelState) {
-        guard new != model.state else { return }
-        let old = model.state
-        let target = model.layout.frame(for: new)
+    /// Window frame for a state with the compact side width the content currently needs.
+    private func currentFrame(for state: NotchPanelState) -> CGRect {
+        model.layout.frame(for: state, compactSide: model.compactSide)
+    }
+
+    /// Grows the window at once so the content can animate into the new room; shrinks it only after the content
+    /// animation has finished so nothing is clipped on the way.
+    private func resizePanel(to target: CGRect) {
         shrinkTask?.cancel()
         let growing = target.width * target.height >= panel.frame.width * panel.frame.height
         if growing {
             panel.setFrame(target, display: false)
+            return
+        }
+        let duration = 0.4 / max(0.25, model.appearance.animationSpeed)
+        let state = model.state
+        shrinkTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(duration))
+            guard let self, !Task.isCancelled, model.state == state else { return }
+            panel.setFrame(target, display: true)
+        }
+    }
+
+    private func transition(to new: NotchPanelState) {
+        guard new != model.state else { return }
+        let old = model.state
+        let target = currentFrame(for: new)
+        let growing = target.width * target.height >= panel.frame.width * panel.frame.height
+        if growing {
+            resizePanel(to: target)
             model.state = new
         } else {
             model.state = new
-            let duration = 0.4 / max(0.25, model.appearance.animationSpeed)
-            shrinkTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(duration))
-                guard let self, !Task.isCancelled, model.state == new else { return }
-                panel.setFrame(target, display: true)
-            }
+            resizePanel(to: target)
         }
         if new == .expanded { model.page = 0 }
         if old == .expanded { EventBus.shared.publish(.notchPanelCollapsed(displayID: displayID)) }
@@ -183,7 +204,7 @@ final class NotchPanelController {
     /// Called by the module's shared mouse monitor with the pointer location in screen coordinates.
     func mouseMoved(to location: CGPoint) {
         guard panel.isVisible, !model.suspended else { return }
-        let rect = model.layout.hoverRect(for: model.state, padding: model.settings.hoverPadding)
+        let rect = model.layout.hoverRect(for: model.state, compactSide: model.compactSide, padding: model.settings.hoverPadding)
         let inside = rect.contains(location)
         if inside != model.isHovering {
             model.isHovering = inside

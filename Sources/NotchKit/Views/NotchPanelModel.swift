@@ -20,6 +20,21 @@ final class NotchPanelModel {
 
     var onTap: (() -> Void)?
 
+    /// Width of each side area in the compact state, following the widest content the activity draws (see
+    /// `NotchContentView.compactRow`). Changing it resizes the window through `onCompactSideChange`.
+    private(set) var compactSide: CGFloat = NotchLayout.minimumCompactSide
+    private var compactContentWidths: [Bool: CGFloat] = [:]
+    var onCompactSideChange: (() -> Void)?
+
+    /// Called by the compact row with the measured width of one side (leading or trailing).
+    func reportCompactContent(width: CGFloat, leading: Bool) {
+        compactContentWidths[leading] = width
+        let side = NotchLayout.compactSide(forContentWidth: compactContentWidths.values.max() ?? 0)
+        guard abs(side - compactSide) > 0.5 else { return }
+        compactSide = side
+        onCompactSideChange?()
+    }
+
     init(displayID: CGDirectDisplayID, layout: NotchLayout, settings: NotchSettings) {
         self.displayID = displayID
         self.layout = layout
