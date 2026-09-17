@@ -24,7 +24,7 @@ Steps to verify by hand what cannot be checked automatically. Matches the code a
 
 Run with `GARAKUTA_DEBUG_SIGNALS=1` and drive the app with `SIGUSR1` (toggle notch), `SIGUSR2` (show/hide switcher), `SIGINFO` (settings window), `SIGURG` (onboarding) and `SIGALRM` (render onboarding steps to PNG when `GARAKUTA_SNAPSHOT_DIR` is set). This confirmed:
 
-- On the notch display the panel appears in the notch area (765–962 × 33pt) at layer 26. External displays get a 160×26 pill.
+- On the notch display the panel appears in the notch area (765–962 × 33pt) at layer 26. External displays get a 160×26 island centred in the menu bar.
 - Toggling expands the pill to 480×180 and collapses it again.
 - The switcher panel appears at layer 101 on the display with the pointer and hides again.
 - The settings window opens and closes.
@@ -70,7 +70,7 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 
 | # | Action | Expected |
 | --- | --- | --- |
-| N01-1 | Launch the app | The notch continues as a black panel. External displays show a pill under the menu bar. |
+| N01-1 | Launch the app | The notch continues as a black panel. External displays show an island inside the menu bar (or under it, when chosen in Appearance). |
 | N01-2 | Click the notch | Opens expanded (shelf). Clicking again closes it. |
 | N02-1 | Reorder and toggle widgets in Settings › Notch | The expanded panel's page composition changes. |
 | N03-1 | Play in Music or Spotify | The panel goes compact with playback info on both sides. The Automation prompt appears once. |

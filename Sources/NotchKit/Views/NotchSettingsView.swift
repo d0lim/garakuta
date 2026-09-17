@@ -61,9 +61,15 @@ public struct NotchSettingsView: View {
             ), supportsOpacity: true)
             LabeledSlider(title: "Animation speed", value: appearance.animationSpeed, range: 0.5...2.5, unit: "×")
             LabeledSlider(title: "Horizontal offset", value: appearance.xOffset, range: -300...300, unit: "pt")
-            LabeledSlider(title: "Vertical offset (no-notch displays)", value: appearance.yOffset, range: 0...60, unit: "pt")
-            LabeledSlider(title: "Pill width (no-notch displays)", value: appearance.pillWidth, range: 80...400, unit: "pt")
-            LabeledSlider(title: "Pill height (no-notch displays)", value: appearance.pillHeight, range: 16...48, unit: "pt")
+            Picker("Island on displays without a notch", selection: appearance.islandPlacement) {
+                Text("Inside the menu bar").tag(NotchSettings.IslandPlacement.menuBar)
+                Text("Below the menu bar").tag(NotchSettings.IslandPlacement.belowMenuBar)
+            }
+            if appearance.wrappedValue.islandPlacement == .belowMenuBar {
+                LabeledSlider(title: "Vertical offset", value: appearance.yOffset, range: 0...60, unit: "pt")
+            }
+            LabeledSlider(title: "Island width", value: appearance.pillWidth, range: 80...400, unit: "pt")
+            LabeledSlider(title: "Island height", value: appearance.pillHeight, range: 16...48, unit: "pt")
         }
     }
 

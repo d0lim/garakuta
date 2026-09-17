@@ -13,7 +13,7 @@ struct NotchContentView: View {
                 .frame(width: size.width, height: size.height)
                 .overlay(alignment: .top) { content.frame(width: size.width, height: size.height) }
                 .clipShape(shape)
-                .shadow(color: .black.opacity(model.state == .collapsed && model.layout.hasNotch ? 0 : 0.35), radius: 10, y: 4)
+                .shadow(color: .black.opacity(shadowOpacity), radius: 10, y: 4)
                 .overlay {
                     if model.isDragTarget {
                         shape.strokeBorder(.white.opacity(0.7), lineWidth: 2)
@@ -26,6 +26,13 @@ struct NotchContentView: View {
                 .animation(model.spring, value: model.layout)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var shadowOpacity: Double {
+        if model.state == .collapsed && model.layout.hasNotch { return 0 }
+        // A pill resting in the menu bar wants a lighter shadow than a floating card.
+        if model.state != .expanded && model.layout.islandInMenuBar { return 0.2 }
+        return 0.35
     }
 
     private var shape: some InsettableShape {
@@ -90,7 +97,7 @@ struct NotchContentView: View {
     private var expandedPager: some View {
         let pages = self.pages
         let index = max(0, min(model.page, pages.count - 1))
-        let topInset = model.layout.hasNotch ? model.layout.menuBarHeight : 8
+        let topInset = model.layout.coversMenuBar ? model.layout.menuBarHeight : 8
         return VStack(spacing: 6) {
             ZStack {
                 ForEach(Array(pages.enumerated()), id: \.offset) { i, page in

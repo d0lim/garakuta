@@ -13,6 +13,8 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 - Settings window pages are switched from an icon strip along the top instead of a segmented control.
 - The setup assistant window no longer shows a title bar.
+- On displays without a notch the island now sits inside the menu bar and expands from the top edge of the
+  screen, like the notch panel. The previous floating position is still available under Notch → Appearance.
 
 ### Fixed
 

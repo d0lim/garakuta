@@ -46,15 +46,17 @@ public struct NotchSettings: Codable, Equatable, Sendable {
         public var animationSpeed: Double = 1
         /// Horizontal nudge in points.
         public var xOffset: Double = 0
-        /// Vertical nudge in points (only used for displays without a notch).
+        /// Vertical nudge in points; only used when the island sits below the menu bar.
         public var yOffset: Double = 6
-        /// Width of the floating pill on displays without a hardware notch.
+        /// Width of the floating island on displays without a hardware notch.
         public var pillWidth: Double = 160
         public var pillHeight: Double = 26
+        /// Where the island goes on displays without a hardware notch.
+        public var islandPlacement: IslandPlacement = .menuBar
         public init() {}
 
         private enum CodingKeys: String, CodingKey {
-            case sizePreset, cornerRadius, background, animationSpeed, xOffset, yOffset, pillWidth, pillHeight
+            case sizePreset, cornerRadius, background, animationSpeed, xOffset, yOffset, pillWidth, pillHeight, islandPlacement
         }
 
         public init(from decoder: Decoder) throws {
@@ -68,7 +70,16 @@ public struct NotchSettings: Codable, Equatable, Sendable {
             yOffset = try c.decodeIfPresent(Double.self, forKey: .yOffset) ?? d.yOffset
             pillWidth = try c.decodeIfPresent(Double.self, forKey: .pillWidth) ?? d.pillWidth
             pillHeight = try c.decodeIfPresent(Double.self, forKey: .pillHeight) ?? d.pillHeight
+            islandPlacement = (try? c.decodeIfPresent(IslandPlacement.self, forKey: .islandPlacement)) ?? d.islandPlacement
         }
+    }
+
+    /// Placement of the island on displays without a hardware notch.
+    public enum IslandPlacement: String, Codable, CaseIterable, Sendable {
+        /// A pill centred inside the menu bar, expanding downwards from the top edge of the screen.
+        case menuBar
+        /// A pill floating just below the menu bar.
+        case belowMenuBar
     }
 
     public enum FullScreenRule: String, Codable, CaseIterable, Sendable {
