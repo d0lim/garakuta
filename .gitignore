@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+build/
+*.xcodeproj
+.swiftpm/
+
+# Personal agent tooling and private research notes stay local
+.agents/
+.claude/
+skills-lock.json
+docs/research/

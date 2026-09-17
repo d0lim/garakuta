@@ -1,0 +1,21 @@
+name: Feature request
+description: Propose a feature or change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How should it work? If it exists in another app, name the app and describe the behaviour rather than linking code.
+  - type: input
+    id: checklist
+    attributes:
+      label: Related item in the feature checklist
+      description: An ID like M03 or N06 from docs/plan/features.md, if one applies.
