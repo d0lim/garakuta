@@ -138,7 +138,8 @@ public struct NotchSettings: Codable, Equatable, Sendable {
     public var modifierOnlyShow = false
     public var fullScreenRule: FullScreenRule = .hide
     public var missionControlRule: MissionControlRule = .hide
-    public var hideFromCapture = true
+    /// Off by default so the panel shows up in screenshots; on, it is invisible to screen capture and sharing.
+    public var hideFromCapture = false
     public var autoHideWhileCapturing = false
     public var widgetLayout: [WidgetLayoutEntry] = [
         .init(id: "nowPlaying", enabled: true),

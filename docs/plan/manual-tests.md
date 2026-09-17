@@ -87,7 +87,7 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 | N04-6 | Quit and relaunch with files on the shelf | The files are still there; files deleted in the meantime are gone. |
 | N05-1 | Change size preset, corner radius, color, animation speed, offsets | Applied immediately. Per-display overrides work. |
 | N06-1 | Enter a full-screen app | Behaves per rule (hide, compact only, always). The rule also applies in Mission Control. |
-| N07-1 | Screenshot (⇧⌘3) or screen share | The panel does not appear (on by default). Turning it off makes it appear. |
+| N07-1 | Turn on "Hide from screen sharing and screenshots", then screenshot (⇧⌘3) or screen share | The panel does not appear. Off (the default), it appears. |
 | N08-1 | Open the M03 bar | The notch panel stays collapsed. Expanding the notch closes the M03 bar. |
 
 ## Window switcher (W)

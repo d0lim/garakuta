@@ -80,35 +80,108 @@ struct NowPlayingWidgetView: View {
 struct TimerWidgetView: View {
     let service: TimerService
     @State private var minutes: Double = 25
+    private static let presets: [Double] = [5, 15, 25, 45]
 
     var body: some View {
         WidgetCard(title: "Timer", systemImage: "timer") {
-            VStack(spacing: 8) {
-                if service.isActive {
-                    Text(service.remainingText)
-                        .font(.system(size: 30, weight: .semibold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(service.phase == .finished ? .orange : .white)
-                    HStack(spacing: 12) {
-                        if service.phase == .running {
-                            Button("Pause") { service.pause() }
-                        } else if service.phase == .paused {
-                            Button("Resume") { service.start() }
-                        }
-                        Button("Reset") { service.reset() }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                } else {
-                    Text("\(Int(minutes)) min")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                    Slider(value: $minutes, in: 1...120, step: 1)
-                    Button("Start") { service.start(minutes * 60) }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                }
+            if service.isActive {
+                running
+            } else {
+                idle
             }
         }
+    }
+
+    /// Duration picker in three rows that fit a half-width card: presets, minute adjustment, start.
+    private var idle: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                ForEach(Self.presets, id: \.self) { preset in
+                    Button("\(Int(preset))") { minutes = preset }
+                        .buttonStyle(NotchPillButtonStyle(prominent: minutes == preset))
+                }
+            }
+            HStack(spacing: 10) {
+                Button { minutes = max(1, minutes - 1) } label: { Image(systemName: "minus") }
+                    .buttonStyle(NotchPillButtonStyle(prominent: false))
+                Text(Self.format(minutes * 60))
+                    .font(.system(size: 24, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+                Button { minutes = min(180, minutes + 1) } label: { Image(systemName: "plus") }
+                    .buttonStyle(NotchPillButtonStyle(prominent: false))
+            }
+            Button { service.start(minutes * 60) } label: { Label("Start", systemImage: "play.fill").frame(maxWidth: .infinity) }
+                .buttonStyle(NotchPillButtonStyle(prominent: true))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Countdown with a progress bar and transport controls; turns orange when time is up.
+    private var running: some View {
+        let finished = service.phase == .finished
+        return VStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(service.remainingText)
+                    .font(.system(size: 30, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(finished ? .orange : .white)
+                Spacer()
+                Text(finished ? "Time's up" : (service.phase == .paused ? "Paused" : "of \(Self.format(service.duration))"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(finished ? .orange : .white.opacity(0.6))
+            }
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.15))
+                    Capsule().fill(finished ? Color.orange : .white)
+                        .frame(width: geometry.size.width * progress)
+                }
+            }
+            .frame(height: 4)
+            .animation(.linear(duration: 0.5), value: progress)
+            HStack(spacing: 8) {
+                if service.phase == .running {
+                    Button { service.pause() } label: { Label("Pause", systemImage: "pause.fill") }
+                        .buttonStyle(NotchPillButtonStyle(prominent: true))
+                } else if service.phase == .paused {
+                    Button { service.start() } label: { Label("Resume", systemImage: "play.fill") }
+                        .buttonStyle(NotchPillButtonStyle(prominent: true))
+                }
+                Button { service.reset() } label: { Label(finished ? "Dismiss" : "Reset", systemImage: "arrow.counterclockwise") }
+                    .buttonStyle(NotchPillButtonStyle(prominent: finished))
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var progress: CGFloat {
+        guard service.duration > 0 else { return 0 }
+        return CGFloat(min(max(1 - service.remaining / service.duration, 0), 1))
+    }
+
+    private static func format(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds.rounded())
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%02d:%02d", m, s)
+    }
+}
+
+/// Capsule button legible on the panel's dark background; the system styles draw dark text there.
+struct NotchPillButtonStyle: ButtonStyle {
+    var prominent: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11, weight: .semibold))
+            .labelStyle(.titleAndIcon)
+            .foregroundStyle(prominent ? .black : .white)
+            .padding(.horizontal, 10)
+            .frame(height: 24)
+            .background(prominent ? Color.white : Color.white.opacity(0.14), in: Capsule())
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .contentShape(Capsule())
     }
 }
 

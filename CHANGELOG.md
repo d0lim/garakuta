@@ -9,6 +9,9 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 - The compact state sizes its side areas to the content they show instead of a fixed width, so a small glyph
   adds only a little to the notch and a longer label gets the room it needs.
 - The notch panel and the island no longer cast a shadow in any state.
+- The panel appears in screenshots by default; hiding it from screen capture is now an opt-in setting.
+- The timer widget is redrawn: duration presets, minute adjustment, a progress bar while running, and buttons
+  that are legible on the dark panel.
 - The chevron itself is the boundary of the hidden section; the separate divider next to it is gone.
 
 ### Fixed
