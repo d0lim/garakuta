@@ -1,5 +1,7 @@
 #include "PrivateAPIs.h"
 #include <dlfcn.h>
+#include <stddef.h>
+#include <string.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -109,18 +111,41 @@ CGError GKSetFrontProcessWithOptions(ProcessSerialNumber *psn, CGWindowID wid, u
     return gLoaded ? gSetFrontProcessWithOptions(psn, wid, mode) : kCGErrorFailure;
 }
 
+/// The 0xf8-byte record SLPSPostEventRecordTo expects. Only the fields the window server reads for a
+/// key-window change are named; everything else stays zero. Offsets are checked at compile time.
+typedef struct __attribute__((packed)) {
+    uint8_t  header[4];
+    uint32_t length;          // total record length, always 0xf8
+    uint32_t phase;           // 1 = activate, 2 = deactivate
+    uint8_t  reserved0[0x14];
+    uint8_t  target[16];      // all 0xff: not addressed to a specific element
+    uint8_t  reserved1[0x0a];
+    uint16_t kind;            // 0x10 = key window change
+    uint32_t windowID;
+    uint8_t  reserved2[0xf8 - 0x40];
+} GKKeyWindowRecord;
+
+_Static_assert(sizeof(GKKeyWindowRecord) == 0xf8, "record must be 0xf8 bytes");
+_Static_assert(offsetof(GKKeyWindowRecord, length) == 0x04, "length offset");
+_Static_assert(offsetof(GKKeyWindowRecord, phase) == 0x08, "phase offset");
+_Static_assert(offsetof(GKKeyWindowRecord, target) == 0x20, "target offset");
+_Static_assert(offsetof(GKKeyWindowRecord, kind) == 0x3a, "kind offset");
+_Static_assert(offsetof(GKKeyWindowRecord, windowID) == 0x3c, "windowID offset");
+
+static void GKPostKeyWindowRecord(ProcessSerialNumber *psn, CGWindowID wid, uint32_t phase) {
+    GKKeyWindowRecord record = {0};
+    record.length = sizeof record;
+    record.phase = phase;
+    memset(record.target, 0xff, sizeof record.target);
+    record.kind = 0x10;
+    record.windowID = wid;
+    gPostEventRecordTo(psn, (uint8_t *)&record);
+}
+
 void GKMakeKeyWindow(ProcessSerialNumber *psn, CGWindowID wid) {
     if (!gLoaded) return;
-    uint8_t bytes1[0xf8] = {0};
-    uint8_t bytes2[0xf8] = {0};
-    bytes1[0x04] = 0xF8; bytes1[0x08] = 0x01; bytes1[0x3a] = 0x10;
-    bytes2[0x04] = 0xF8; bytes2[0x08] = 0x02; bytes2[0x3a] = 0x10;
-    memcpy(&bytes1[0x3c], &wid, sizeof wid);
-    memcpy(&bytes2[0x3c], &wid, sizeof wid);
-    memset(&bytes1[0x20], 0xFF, 0x10);
-    memset(&bytes2[0x20], 0xFF, 0x10);
-    gPostEventRecordTo(psn, bytes1);
-    gPostEventRecordTo(psn, bytes2);
+    GKPostKeyWindowRecord(psn, wid, 1);
+    GKPostKeyWindowRecord(psn, wid, 2);
 }
 
 bool GKAXUIElementGetWindow(AXUIElementRef element, CGWindowID *out) {
