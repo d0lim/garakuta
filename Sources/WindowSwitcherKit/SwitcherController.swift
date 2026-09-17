@@ -122,12 +122,9 @@ final class SwitcherController {
         showTimer?.invalidate(); showTimer = nil
         let panel = self.panel ?? makePanel()
         self.panel = panel
-        Task { [weak self] in
-            guard let self else { return }
-            let available = await WindowCapture.shared.isAvailable
-            self.state.thumbnailsEnabled = available && !self.state.settings.simpleMode
-            if self.state.thumbnailsEnabled { self.startThumbnailRefresh() }
-        }
+        // Decided before the first layout so the tile width does not change once the panel is on screen.
+        state.thumbnailsEnabled = Permission.screenRecording.isGranted && !state.settings.simpleMode
+        if state.thumbnailsEnabled { startThumbnailRefresh() }
         layout(panel, on: screen)
         state.isVisible = true
         panel.makeKeyAndOrderFront(nil)
@@ -152,6 +149,7 @@ final class SwitcherController {
     }
 
     private func layout(_ panel: SwitcherPanel, on screen: NSScreen) {
+        state.maxGridWidth = screen.visibleFrame.width * 0.8
         hosting?.layoutSubtreeIfNeeded()
         var size = hosting?.fittingSize ?? CGSize(width: 400, height: 200)
         size.width = min(max(size.width, 240), screen.visibleFrame.width - 40)

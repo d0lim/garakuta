@@ -14,6 +14,16 @@ final class SwitcherState {
     var thumbnails: [CGWindowID: CGImage] = [:]
     var thumbnailsEnabled = false
     var isVisible = false
+    /// Widest the tile grid may grow on the screen the switcher is shown on; the view derives its column count from it.
+    var maxGridWidth: CGFloat = 1200
+
+    /// Column count for the grid: as many tiles as fit side by side, never more than there are windows.
+    func columns(tileWidth: CGFloat, spacing: CGFloat) -> Int {
+        let count = filtered.count
+        guard count > 0 else { return 1 }
+        let fit = Int((maxGridWidth + spacing) / (tileWidth + spacing))
+        return max(1, min(count, fit))
+    }
 
     var filtered: [SwitcherWindow] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()

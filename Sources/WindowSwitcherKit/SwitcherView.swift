@@ -7,6 +7,7 @@ struct SwitcherView: View {
     var onActivate: (SwitcherWindow) -> Void
     var onHover: (SwitcherWindow) -> Void
 
+    private static let spacing: CGFloat = 10
     private var tileWidth: CGFloat { state.settings.simpleMode || !state.thumbnailsEnabled ? 200 : CGFloat(state.settings.thumbnailWidth) }
     private var minimal: Bool { state.settings.minimalDecorations }
 
@@ -27,9 +28,13 @@ struct SwitcherView: View {
                     .foregroundStyle(.secondary)
                     .frame(width: 320, height: 120)
             } else {
+                // A fixed column count, sized from the screen: an adaptive grid inside a scroll view would report a
+                // single column as its ideal width and the panel would come out as a narrow strip.
+                let columns = state.columns(tileWidth: tileWidth, spacing: Self.spacing)
+                let gridWidth = CGFloat(columns) * tileWidth + CGFloat(columns - 1) * Self.spacing
                 ScrollViewReader { proxy in
                     ScrollView(.vertical) {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: tileWidth, maximum: tileWidth), spacing: 10)], spacing: 10) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.fixed(tileWidth), spacing: Self.spacing), count: columns), spacing: Self.spacing) {
                             ForEach(Array(state.filtered.enumerated()), id: \.element.windowID) { index, window in
                                 tile(window, selected: index == state.selectedIndex)
                                     .id(window.windowID)
@@ -37,8 +42,10 @@ struct SwitcherView: View {
                                     .onTapGesture { onActivate(window) }
                             }
                         }
+                        .frame(width: gridWidth)
                         .padding(4)
                     }
+                    .frame(width: gridWidth + 8)
                     .frame(maxHeight: 560)
                     .onChange(of: state.selectedIndex) { _, _ in
                         if let sel = state.selected { withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(sel.windowID) } }
