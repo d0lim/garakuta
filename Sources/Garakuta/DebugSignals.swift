@@ -9,6 +9,7 @@ import SwiftUI
 ///   SIGINFO  open the settings window (SIGINFO is ctrl-T from a terminal)
 ///   SIGURG   open the setup assistant
 ///   SIGALRM  render every onboarding step to PNG files in $GARAKUTA_SNAPSHOT_DIR (layout check without a screen)
+///   SIGWINCH toggle the hidden menu bar section
 @MainActor
 final class DebugSignals {
     private var sources: [DispatchSourceSignal] = []
@@ -21,6 +22,7 @@ final class DebugSignals {
         add(SIGINFO) { model.openSettings() }
         add(SIGURG) { model.openOnboarding() }
         add(SIGALRM) { Self.snapshotOnboarding(model: model) }
+        add(SIGWINCH) { model.menuBar.toggleHiddenSection() }
     }
 
     /// Renders each step off-screen so layouts can be reviewed on a machine without Screen Recording access.

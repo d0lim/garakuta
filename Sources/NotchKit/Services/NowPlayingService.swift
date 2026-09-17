@@ -49,6 +49,12 @@ public final class NowPlayingService {
     private let bridge = NowPlayingBridgeClient()
     private var usingBridge = false
 
+    // Browser tab titles, standing in for metadata the service withholds for browsers.
+    private var browserPick: BrowserTabTitles.Pick?
+    private var browserTitleTimer: Timer?
+    private var browserTitleInFlight = false
+    private var lastBridgeRecord: NowPlayingBridgeClient.Record?
+
     // Apple Events fallback
     private var pollTimer: Timer?
     private var pollInFlight = false
@@ -87,6 +93,7 @@ public final class NowPlayingService {
         bridge.stop()
         usingBridge = false
         stopPolling()
+        stopBrowserTitles()
         publish(nil)
     }
 
@@ -139,17 +146,31 @@ public final class NowPlayingService {
     // MARK: Bridge records
 
     private func apply(_ record: NowPlayingBridgeClient.Record) {
+        lastBridgeRecord = record
         let info = record.info
         guard !info.isEmpty || record.pid > 0 else {
+            stopBrowserTitles()
             if track != nil { artwork = nil; publish(nil) }
             return
         }
         let app = record.pid > 0 ? NSRunningApplication(processIdentifier: pid_t(record.pid)) : nil
         func string(_ key: String) -> String { info["kMRMediaRemoteNowPlayingInfo\(key)"] as? String ?? "" }
         func number(_ key: String) -> Double? { (info["kMRMediaRemoteNowPlayingInfo\(key)"] as? NSNumber)?.doubleValue }
-        let title = string("Title")
-        // A source that has registered but has nothing loaded reports neither a title nor a duration.
-        guard !title.isEmpty || (number("Duration") ?? 0) > 0 else {
+        var title = string("Title")
+        var artist = string("Artist")
+        let browser = BrowserTabTitles.isBrowser(app?.bundleIdentifier)
+        if browser, title.isEmpty {
+            if let pick = browserPick {
+                title = pick.title
+                artist = pick.artist
+            }
+            startBrowserTitles(bundleIdentifier: app?.bundleIdentifier ?? "")
+        } else {
+            stopBrowserTitles()
+        }
+        // A source that has registered but has nothing loaded reports neither a title nor a duration. A browser
+        // shows up as soon as it plays; its tab title follows a moment later.
+        guard !title.isEmpty || (number("Duration") ?? 0) > 0 || (browser && record.playing) else {
             if track != nil { artwork = nil; publish(nil) }
             return
         }
@@ -158,16 +179,48 @@ public final class NowPlayingService {
         let artworkKey = string("ArtworkIdentifier").nilIfEmpty ?? string("ContentItemIdentifier").nilIfEmpty
             ?? artworkData.map { "\($0.count)" }
         let new = Track(sourceName: app?.localizedName ?? "Now Playing", bundleIdentifier: app?.bundleIdentifier,
-                        isPlaying: record.playing, title: title, artist: string("Artist"), album: string("Album"),
+                        isPlaying: record.playing, title: title, artist: artist, album: string("Album"),
                         duration: number("Duration") ?? 0, reportedElapsed: number("ElapsedTime") ?? 0,
                         reportedAt: info["kMRMediaRemoteNowPlayingInfoTimestamp"] as? Date ?? Date(),
-                        playbackRate: record.playing ? max(rate, 0.01) : 0, artworkKey: artworkKey)
+                        playbackRate: record.playing ? (rate > 0 ? rate : 1) : 0, artworkKey: artworkKey)
         if let artworkData, !artworkData.isEmpty, artworkKey != track?.artworkKey || artwork == nil {
             artwork = NSImage(data: artworkData)
         } else if artworkData == nil && artworkKey != track?.artworkKey {
             artwork = nil
         }
         if new != track { publish(new) }
+    }
+
+    // MARK: Browser tab titles
+
+    private func startBrowserTitles(bundleIdentifier: String) {
+        guard browserTitleTimer == nil else { return }
+        refreshBrowserTitle(bundleIdentifier: bundleIdentifier)
+        browserTitleTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+            Task { @MainActor in NotchServices.shared.nowPlaying.refreshBrowserTitle(bundleIdentifier: bundleIdentifier) }
+        }
+    }
+
+    private func stopBrowserTitles() {
+        browserTitleTimer?.invalidate()
+        browserTitleTimer = nil
+        browserPick = nil
+    }
+
+    private func refreshBrowserTitle(bundleIdentifier: String) {
+        guard !browserTitleInFlight, let source = BrowserTabTitles.script(for: bundleIdentifier) else { return }
+        browserTitleInFlight = true
+        let executor = self.executor
+        Task { @MainActor [weak self] in
+            let output = await executor.run(source, cacheKey: "tabs:\(bundleIdentifier)")
+            guard let self else { return }
+            browserTitleInFlight = false
+            if output == nil { NSLog("browser tab titles unavailable for %@ (Automation permission?)", bundleIdentifier) }
+            let pick = output.flatMap { BrowserTabTitles.pick(from: $0) }
+            guard pick != browserPick else { return }
+            browserPick = pick
+            if let record = lastBridgeRecord { apply(record) }
+        }
     }
 
     // MARK: Apple Events fallback (Music and Spotify)

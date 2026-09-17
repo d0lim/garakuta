@@ -43,9 +43,13 @@ struct NowPlayingWidgetView: View {
                         Text(track.displayTitle).font(.system(size: 14, weight: .semibold)).lineLimit(1)
                         Text(track.artist.isEmpty ? track.album : track.artist).font(.system(size: 12)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
                         // Position is extrapolated between reports, so redraw once a second while playing.
-                        TimelineView(.periodic(from: .now, by: track.isPlaying ? 1 : 3600)) { _ in
-                            ProgressView(value: track.duration > 0 ? min(track.position / track.duration, 1) : 0)
-                                .tint(.white)
+                        // Sources without a known duration (browsers, live streams) get no bar.
+                        if track.duration > 0 {
+                            TimelineView(.periodic(from: .now, by: track.isPlaying ? 1 : 3600)) { _ in
+                                ProgressView(value: min(track.position / track.duration, 1)).tint(.white)
+                            }
+                        } else {
+                            Spacer().frame(height: 6)
                         }
                         HStack(spacing: 18) {
                             Button { service.previous() } label: { Image(systemName: "backward.fill") }

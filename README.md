@@ -48,7 +48,7 @@ Then grant Accessibility (and, if you want icon captures and thumbnails, Screen 
 | --- | --- | --- |
 | Accessibility | Listing and moving other apps' menu bar icons, clicking them from the hidden-items bar, minimized windows, releasing ⌥ to select | Sections still hide and reveal; you ⌘-drag icons yourself; the switcher cycles with repeated ⌥⇥ and selects with Return |
 | Screen Recording | Real icon images and window thumbnails | App icons and titles |
-| Automation (Music, Spotify) | Only the fallback path for now-playing info, used when the bundled helper cannot run | Music and Spotify still show through the helper |
+| Automation | Song titles of media playing in a browser tab; Music and Spotify polling when the bundled helper cannot run | Browsers show as playing without a title |
 
 ## Project layout
 

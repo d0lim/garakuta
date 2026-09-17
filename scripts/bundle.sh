@@ -31,7 +31,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
   <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>LSUIElement</key><true/>
-  <key>NSAppleEventsUsageDescription</key><string>Garakuta reads what Music or Spotify is playing to show it in the notch panel.</string>
+  <key>NSAppleEventsUsageDescription</key><string>Garakuta reads what is playing in Music, Spotify or a browser tab to show it in the notch panel.</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST

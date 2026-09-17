@@ -8,6 +8,16 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 - The compact state sizes its side areas to the content they show instead of a fixed width, so a small glyph
   adds only a little to the notch and a longer label gets the room it needs.
+- The notch panel and the island no longer cast a shadow in any state.
+- The chevron itself is the boundary of the hidden section; the separate divider next to it is gone.
+
+### Fixed
+
+- Now Playing shows media playing in browsers (YouTube, YouTube Music and the like). The system reports that a
+  browser is playing but withholds its metadata, so the title of the playing tab is read through Apple Events
+  instead; the browser asks for Automation permission once.
+- The now-playing helper could stall for good when the service answered a query on the queue the helper was
+  waiting on; queries, callbacks and notifications now run on separate queues, and an unanswered query is dropped.
 
 ## [0.3.0] - 2026-09-17
 

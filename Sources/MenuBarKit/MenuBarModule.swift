@@ -31,7 +31,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
         }
     }
 
-    private var appIcon: ControlItem?
+    private var chevron: ControlItem?
     private var hiddenSeparator: ControlItem?
     private var alwaysHiddenSeparator: ControlItem?
     private var spacerItems: [UUID: SpacerItem] = [:]
@@ -71,15 +71,14 @@ public final class MenuBarModule: NSObject, FeatureModule {
         guard !isRunning else { return }
         let alwaysHidden = ControlItem(kind: .alwaysHiddenSeparator)
         let hidden = ControlItem(kind: .hiddenSeparator)
-        let icon = ControlItem(kind: .appIcon)
+        let chevronItem = ControlItem(kind: .chevron)
         alwaysHiddenSeparator = alwaysHidden
         hiddenSeparator = hidden
-        appIcon = icon
+        chevron = chevronItem
 
-        icon.statusItem.button?.target = self
-        icon.statusItem.button?.action = #selector(appIconClicked(_:))
-        icon.statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-
+        chevronItem.statusItem.button?.target = self
+        chevronItem.statusItem.button?.action = #selector(chevronClicked(_:))
+        chevronItem.statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         for separator in [hidden, alwaysHidden] {
             separator.statusItem.button?.target = self
             separator.statusItem.button?.action = #selector(separatorClicked(_:))
@@ -151,8 +150,8 @@ public final class MenuBarModule: NSObject, FeatureModule {
         spacerItems.removeAll()
         groupItems.values.forEach { NSStatusBar.system.removeStatusItem($0.statusItem) }
         groupItems.removeAll()
-        [appIcon, hiddenSeparator, alwaysHiddenSeparator].compactMap { $0 }.forEach { $0.remove() }
-        appIcon = nil
+        [chevron, hiddenSeparator, alwaysHiddenSeparator].compactMap { $0 }.forEach { $0.remove() }
+        chevron = nil
         hiddenSeparator = nil
         alwaysHiddenSeparator = nil
         if MenuBarModule.active === self { MenuBarModule.active = nil }
@@ -238,7 +237,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
     }
 
     private func applyCollapseState() {
-        appIcon?.setChevron(pointingLeft: isHiddenSectionCollapsed)
+        chevron?.setChevron(pointingLeft: isHiddenSectionCollapsed)
         hiddenSeparator?.setCollapsed(isHiddenSectionCollapsed)
         alwaysHiddenSeparator?.setCollapsed(isAlwaysHiddenSectionCollapsed)
     }
@@ -463,7 +462,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
             ?? MenuBarGeometry.screen(containing: NSEvent.mouseLocation)
             ?? MenuBarGeometry.mainScreen
         guard let screen else { return }
-        let anchor = appIcon?.frame.map { MenuBarGeometry.toAppKit($0) }
+        let anchor = chevron?.frame.map { MenuBarGeometry.toAppKit($0) }
         let barEntries = entries.map { item in
             HiddenItemsBar.Entry(item: item, image: NSRunningApplication(processIdentifier: item.ownerPID)?.icon)
         }
@@ -534,10 +533,10 @@ public final class MenuBarModule: NSObject, FeatureModule {
 
     // MARK: Actions
 
-    @objc private func appIconClicked(_ sender: NSStatusBarButton) {
+    @objc private func chevronClicked(_ sender: NSStatusBarButton) {
         if NSApp.currentEvent?.type == .rightMouseUp {
             showMenu(from: sender)
-        } else if settings.secondaryBarEnabled {
+        } else if settings.secondaryBarEnabled, isHiddenSectionCollapsed {
             if bar.isOpen { closeHiddenItemsBar() } else { openHiddenItemsBar(displayID: sender.window?.screen.flatMap { MenuBarGeometry.displayID(of: $0) }) }
         } else {
             toggleHiddenSection()
@@ -546,6 +545,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
 
     @objc private func separatorClicked(_ sender: NSStatusBarButton) {
         if sender === hiddenSeparator?.statusItem.button {
+            // The visible stretch of the collapsed boundary looks like bare menu bar.
             if isHiddenSectionCollapsed, !settings.revealOnClickEmptyArea { return }
             toggleHiddenSection()
         } else {
@@ -554,7 +554,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
     }
 
     private func showMenu(from button: NSStatusBarButton) {
-        guard let statusItem = appIcon?.statusItem else { return }
+        guard let statusItem = chevron?.statusItem else { return }
         statusItem.menu = buildMenu()
         button.performClick(nil)
         statusItem.menu = nil

@@ -13,7 +13,6 @@ struct NotchContentView: View {
                 .frame(width: size.width, height: size.height)
                 .overlay(alignment: .top) { content.frame(width: size.width, height: size.height) }
                 .clipShape(shape)
-                .shadow(color: .black.opacity(shadowOpacity), radius: 10, y: 4)
                 .overlay {
                     if model.isDragTarget {
                         shape.strokeBorder(.white.opacity(0.7), lineWidth: 2)
@@ -39,13 +38,6 @@ struct NotchContentView: View {
                 .animation(model.spring, value: model.compactSide)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
-
-    private var shadowOpacity: Double {
-        if model.state == .collapsed && model.layout.hasNotch { return 0 }
-        // A pill resting in the menu bar wants a lighter shadow than a floating card.
-        if model.state != .expanded && model.layout.islandInMenuBar { return 0.2 }
-        return 0.35
     }
 
     private var shape: some InsettableShape {

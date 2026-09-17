@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Looping illustration of the one gesture that arranges the menu bar: hold ⌘ and drag an icon across a divider.
+/// Looping illustration of the one gesture that arranges the menu bar: hold ⌘ and drag an icon across the chevron.
 /// Shown in settings and the setup assistant instead of a per-item list, which turned out to be harder to grasp.
 public struct ArrangeGuideView: View {
     public init() {}
@@ -15,14 +15,14 @@ public struct ArrangeGuideView: View {
         }
         .frame(width: Self.barSize.width, height: 92)
         .frame(maxWidth: .infinity)
-        .accessibilityLabel("Hold the command key and drag a menu bar icon to the left of a divider to hide it.")
+        .accessibilityLabel("Hold the command key and drag a menu bar icon to the left of the chevron to hide it.")
     }
 
     // Timeline (fractions of one loop): pointer arrives, ⌘ appears, icon is dragged left across the divider,
     // pointer releases, the icon settles dimmed in the hidden section, then everything fades back.
     private func scene(progress t: Double) -> some View {
         let bar = Self.barSize
-        let dividerX: CGFloat = 178          // single divider: hidden | visible
+        let dividerX: CGFloat = 178          // the chevron: hidden ‹ visible
         let doubleDividerX: CGFloat = 70     // double divider: always hidden | hidden
         let startX: CGFloat = 250            // the dragged icon's home in the visible section
         let endX: CGFloat = 140              // where it lands, left of the divider
@@ -45,13 +45,12 @@ public struct ArrangeGuideView: View {
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 8))
 
             divider(bars: 2).position(x: doubleDividerX, y: bar.height / 2)
-            divider(bars: 1).position(x: dividerX, y: bar.height / 2)
+            Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).position(x: dividerX, y: bar.height / 2)
 
             // Idle icons
-            glyph("wifi").position(x: 300, y: bar.height / 2)
-            glyph("battery.100percent").position(x: 336, y: bar.height / 2)
-            glyph("chevron.left").position(x: 372, y: bar.height / 2)
-            Text("9:41").font(.system(size: 11, weight: .medium)).monospacedDigit().position(x: 402, y: bar.height / 2)
+            glyph("wifi").position(x: 318, y: bar.height / 2)
+            glyph("battery.100percent").position(x: 356, y: bar.height / 2)
+            Text("9:41").font(.system(size: 11, weight: .medium)).monospacedDigit().position(x: 400, y: bar.height / 2)
             glyph("moon.zzz.fill").position(x: 110, y: bar.height / 2).opacity(0.45)
             glyph("bell.badge.fill").position(x: 40, y: bar.height / 2).opacity(0.3)
 

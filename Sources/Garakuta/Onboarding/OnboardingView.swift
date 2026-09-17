@@ -209,7 +209,7 @@ struct OnboardingView: View {
 
     private var menuBarTour: some View {
         VStack(alignment: .leading, spacing: 18) {
-            header("Your menu bar, in three sections", "Garakuta adds a ‹ button and two dividers. Everything left of the single divider is hidden, everything left of the double divider is always hidden. Hold ⌘ and drag any icon across a divider to move it.")
+            header("Your menu bar, in three sections", "Garakuta adds a ‹ chevron and a double divider. Everything left of ‹ is hidden, everything left of the double divider is always hidden. Hold ⌘ and drag any icon across them to move it.")
             ArrangeGuideView()
             HStack(spacing: 12) {
                 Button(model.hiddenSectionCollapsed ? "Show hidden items now" : "Hide them again") { model.toggleHiddenSection() }

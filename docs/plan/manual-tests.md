@@ -13,7 +13,7 @@ Steps to verify by hand what cannot be checked automatically. Matches the code a
 3. Permissions. Turn on `Garakuta` under System Settings → Privacy & Security.
    - Accessibility: all menu bar (M) and window switcher (W) features.
    - Screen Recording (optional): M03 real-icon mode, W01 thumbnails.
-   - Automation (Music, Spotify): only asked when the now-playing helper cannot run and the app falls back to Apple Events (N03).
+   - Automation: asked for a browser the first time it plays media (its tab title stands in for metadata the system withholds), and for Music/Spotify only when the now-playing helper cannot run (N03).
    - The bundle is ad-hoc signed with a designated requirement based on the bundle identifier, so a grant survives rebuilds. If System Settings shows Garakuta switched on while the app still reports the permission missing, the grant belongs to a copy signed differently: use **Reset…** next to the permission (or `tccutil reset Accessibility com.d0lim.garakuta`) and grant again.
 4. Settings window: right-click the menu bar icon → Settings…. Logs:
    ```sh
@@ -49,12 +49,12 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 
 | # | Action | Expected |
 | --- | --- | --- |
-| M01-1 | Launch the app | A `‹` chevron is visible in the right-hand area; items left of the (collapsed) divider are hidden. |
-| M01-2 | Left-click the chevron | The hidden section expands, showing the single divider and its items; the chevron flips to `›`. Clicking again collapses it. |
+| M01-1 | Launch the app | A `‹` chevron is visible in the right-hand area; items left of it are hidden. |
+| M01-2 | Left-click the chevron | The hidden section expands to the left of the chevron, which flips to `›`. Clicking again collapses it. Right-click opens the menu. |
 | M01-3 | Right-click → Show Always-Hidden Items | The double divider and the always-hidden section expand as well. |
-| M01-4 | `⌘`-drag another app's icon between the dividers, then relaunch | The layout is preserved. |
+| M01-4 | `⌘`-drag another app's icon between the chevron and the double divider, then relaunch | The layout is preserved. |
 | M01-5 | Right-click the chevron → Menu Bar Items → an item → Move to … | The cursor moves briefly and returns; the item moves. On failure the log shows `move ... failed`; gives up after 3 retries. |
-| M01-6 | Settings › Menu Bar | The tab opens with the animated ⌘-drag guide; "Show all sections while I arrange" expands both dividers. |
+| M01-6 | Settings › Menu Bar | The tab opens with the animated ⌘-drag guide; "Show all sections while I arrange" expands both sections. |
 | M02-1 | Hover the menu bar and wait for the configured delay | The hidden section expands. Moving the pointer away collapses it after the auto-hide delay. |
 | M02-2 | Click an empty menu bar area / two-finger scroll | Each expands the section (when enabled in settings). |
 | M02-3 | Record a hotkey in settings and press it | Toggles the section. |
@@ -71,10 +71,11 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 
 | # | Action | Expected |
 | --- | --- | --- |
-| N01-1 | Launch the app | The notch continues as a black panel. External displays show an island inside the menu bar (or under it, when chosen in Appearance). Opening and closing the island keeps its top edge fixed; nothing jumps. |
+| N01-1 | Launch the app | The notch continues as a black panel. External displays show an island inside the menu bar (or under it, when chosen in Appearance). Opening and closing the island keeps its top edge fixed; nothing jumps. Neither the panel nor the island casts a shadow. |
 | N01-2 | Click the notch | Opens expanded (shelf). Clicking again closes it. |
 | N02-1 | Reorder and toggle widgets in Settings › Notch | The expanded panel's page composition changes. |
-| N03-1 | Play something in any app that publishes to the system now-playing service (Music, a browser tab, a video player) | The panel goes compact with playback info on both sides; the expanded page shows title, artist, artwork, progress and the app name. Pause: the activity stays for five minutes, then goes away. |
+| N03-1 | Play something in any app that publishes to the system now-playing service (Music, a video player) | The panel goes compact with playback info on both sides; the expanded page shows title, artist, artwork, progress and the app name. Pause: the activity stays for five minutes, then goes away. |
+| N03-1a | Play a YouTube or YouTube Music tab in a browser | The activity appears with the browser's name; after the Automation prompt is allowed, the tab title (song and artist) follows within two seconds. No progress bar, since the system reports no duration. |
 | N03-1b | Quit the app and check `pgrep -f nowplaying.pl` | The helper process exits with the app. |
 | N03-2 | Start the timer widget while playing | Primary and secondary activities show together. |
 | N03-3 | Connect or disconnect the power adapter | The battery activity shows for a few seconds. |

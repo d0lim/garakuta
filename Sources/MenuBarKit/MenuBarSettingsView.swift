@@ -41,14 +41,14 @@ public struct MenuBarSettingsView: View {
                 .padding(.vertical, 6)
             VStack(alignment: .leading, spacing: 6) {
                 step(1, "Hold ⌘ and drag any icon in the menu bar.")
-                step(2, "Drop it left of the single divider to hide it, or left of the double divider to always hide it.")
+                step(2, "Drop it left of ‹ to hide it, or left of the double divider to always hide it.")
                 step(3, "Click ‹ to show the hidden icons again, or use one of the reveal options below.")
             }
             HStack {
                 Button(module.isAlwaysHiddenSectionCollapsed ? "Show all sections while I arrange" : "Tuck the sections away") {
                     module.setAlwaysHiddenSectionCollapsed(!module.isAlwaysHiddenSectionCollapsed)
                 }
-                Text("Both dividers stay visible while the pointer is in the menu bar.")
+                Text("The hidden section and the double divider stay visible while the pointer is in the menu bar.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         } header: {
