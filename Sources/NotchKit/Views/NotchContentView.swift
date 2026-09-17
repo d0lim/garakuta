@@ -22,6 +22,7 @@ struct NotchContentView: View {
                 }
                 .contentShape(shape)
                 .onTapGesture { model.onTap?() }
+                .padding(.top, model.layout.topInset(for: model.state))
                 .animation(model.spring, value: model.state)
                 .animation(model.spring, value: model.layout)
         }

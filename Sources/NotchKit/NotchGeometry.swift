@@ -62,22 +62,26 @@ struct NotchLayout: Equatable {
         }
     }
 
-    /// Top edge of the panel in AppKit screen coordinates.
-    func topY(for state: NotchPanelState) -> CGFloat {
-        if hasNotch { return geometry.frame.maxY }
-        if islandInMenuBar {
-            // Collapsed and compact pills are centred in the menu bar; the expanded panel grows from the top edge.
-            return state == .expanded ? geometry.frame.maxY : geometry.frame.maxY - (menuBarHeight - collapsedSize.height) / 2
-        }
-        return geometry.frame.maxY - menuBarHeight - appearance.yOffset
+    /// Top edge of the panel window in AppKit screen coordinates. The same for every state so that state changes
+    /// never move the window, only its size; the content animates inside it.
+    var topY: CGFloat {
+        coversMenuBar ? geometry.frame.maxY : geometry.frame.maxY - menuBarHeight - appearance.yOffset
+    }
+
+    /// Gap between the window's top edge and the drawn shape. Centres the collapsed and compact pill in the menu
+    /// bar of a display without a notch; zero everywhere else.
+    func topInset(for state: NotchPanelState) -> CGFloat {
+        guard islandInMenuBar, state != .expanded else { return 0 }
+        return (menuBarHeight - collapsedSize.height) / 2
     }
 
     var centerX: CGFloat { geometry.frame.midX + appearance.xOffset }
 
-    /// Window frame (AppKit coordinates) for a state, anchored top-centre.
+    /// Window frame (AppKit coordinates) for a state, anchored top-centre. Includes the top inset.
     func frame(for state: NotchPanelState) -> CGRect {
         let size = size(for: state)
-        return CGRect(x: centerX - size.width / 2, y: topY(for: state) - size.height, width: size.width, height: size.height)
+        let height = size.height + topInset(for: state)
+        return CGRect(x: centerX - size.width / 2, y: topY - height, width: size.width, height: height)
     }
 
     /// Area that counts as "hovering the notch" while collapsed/compact.

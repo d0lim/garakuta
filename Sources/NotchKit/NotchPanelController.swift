@@ -16,6 +16,10 @@ final class NotchPanelController {
     private var closeTask: Task<Void, Never>?
     private var shrinkTask: Task<Void, Never>?
     private var swipeAccumulator: CGFloat = 0
+    /// One page turn (or open/close) per swipe: set once a gesture has acted, cleared when the fingers lift.
+    private var swipeConsumed = false
+    /// Which live activity headed the pager at the last change, to keep the visible widget page stable (see restingStateChanged).
+    private var lastPrimaryActivityID: String?
     private var hiddenByRules = false
     private var isFullScreen = false
     private var isMissionControl = false
@@ -104,7 +108,18 @@ final class NotchPanelController {
     }
 
     func restingStateChanged() {
-        guard model.state != .expanded else { return }
+        let primaryID = activities.primary?.id
+        defer { lastPrimaryActivityID = primaryID }
+        guard model.state != .expanded else {
+            // The activity page is inserted before (or removed from before) the widget pages. Shift the index so
+            // whatever the user is looking at, such as the timer they just started, stays on screen.
+            if lastPrimaryActivityID == nil, primaryID != nil {
+                model.page += 1
+            } else if lastPrimaryActivityID != nil, primaryID == nil {
+                model.page = max(0, model.page - 1)
+            }
+            return
+        }
         transition(to: restingState)
     }
 
@@ -198,22 +213,29 @@ final class NotchPanelController {
     /// Two-finger swipes: horizontal pages while expanded, vertical opens/closes (N04).
     func scroll(deltaX: CGFloat, deltaY: CGFloat, phase: NSEvent.Phase, location: CGPoint) {
         guard model.settings.swipeNavigationEnabled, panel.frame.insetBy(dx: -model.settings.hoverPadding, dy: -model.settings.hoverPadding).contains(location) else { return }
-        if phase == .began { swipeAccumulator = 0 }
-        if phase == .changed {
+        if phase == .began {
+            swipeAccumulator = 0
+            swipeConsumed = false
+        }
+        if phase == .changed, !swipeConsumed {
             if model.state == .expanded {
                 swipeAccumulator += deltaX
                 if abs(swipeAccumulator) > 40 {
-                    let dir = swipeAccumulator > 0 ? -1 : 1
-                    setPage(model.page + dir)
-                    swipeAccumulator = 0
+                    setPage(model.page + (swipeAccumulator > 0 ? -1 : 1))
+                    swipeConsumed = true
                 } else if deltaY < -12 {
                     collapse()
+                    swipeConsumed = true
                 }
             } else if deltaY > 12 {
                 expand(source: .click)
+                swipeConsumed = true
             }
         }
-        if phase == .ended || phase == .cancelled { swipeAccumulator = 0 }
+        if phase == .ended || phase == .cancelled {
+            swipeAccumulator = 0
+            swipeConsumed = false
+        }
     }
 
     // MARK: Rules (N06 / N07 / N08)
