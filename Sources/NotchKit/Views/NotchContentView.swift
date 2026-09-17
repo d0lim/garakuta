@@ -77,10 +77,10 @@ struct NotchContentView: View {
         let secondary = activities.secondary
         return HStack(spacing: 0) {
             HStack { Spacer(minLength: 0); primary?.compactLeading() }
-                .frame(width: side - 6)
-            Spacer().frame(width: notchWidth + 12)
+                .frame(width: side - 4)
+            Spacer().frame(width: notchWidth + 8)
             HStack { (secondary ?? primary)?.compactTrailing(); Spacer(minLength: 0) }
-                .frame(width: side - 6)
+                .frame(width: side - 4)
         }
         .frame(height: model.layout.compactSize.height)
         .transition(.opacity)

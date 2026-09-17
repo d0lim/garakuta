@@ -22,6 +22,7 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
   group row. Automatic arrangement hides the leftmost visible icon first.
 - The window switcher lays tiles out in as many columns as fit the screen instead of a single column.
 - A paused now-playing item keeps its activity for five minutes, then steps aside.
+- The compact state adds less width on each side of the notch or island when an activity appears.
 
 ### Fixed
 
