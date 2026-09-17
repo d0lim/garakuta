@@ -3,15 +3,15 @@ import GarakutaCore
 import SwiftUI
 
 /// Settings UI for the menu bar module. Edits `MenuBarModule.settings` directly and saves on every change.
+/// Arranging icons is taught, not configured: the one gesture that works everywhere is ⌘-drag in the menu bar itself.
 public struct MenuBarSettingsView: View {
     private let module: MenuBarModule
 
     @State private var settings: MenuBarSettings
-    @State private var discovered: [(item: MenuBarItem, section: MenuBarSection)] = []
+    @State private var discovered: [MenuBarItem] = []
     @State private var accessibilityGranted = Permission.accessibility.isGranted
     @State private var screenRecordingGranted = Permission.screenRecording.isGranted
     @State private var newGroupName = ""
-    @State private var statusMessage = ""
 
     public init(module: MenuBarModule) {
         self.module = module
@@ -20,13 +20,13 @@ public struct MenuBarSettingsView: View {
 
     public var body: some View {
         Form {
-            permissionsSection
+            arrangeSection
             revealSection
             barSection
-            arrangeSection
-            itemsSection
+            autoArrangeSection
             spacersSection
             groupsSection
+            permissionsSection
         }
         .formStyle(.grouped)
         .onChange(of: settings) { _, new in module.settings = new }
@@ -35,22 +35,36 @@ public struct MenuBarSettingsView: View {
 
     // MARK: Sections
 
-    private var permissionsSection: some View {
-        Section("Permissions") {
-            HStack {
-                Label("Accessibility", systemImage: accessibilityGranted ? "checkmark.circle.fill" : "xmark.circle")
-                Spacer()
-                if !accessibilityGranted {
-                    Button("Request…") { Permission.accessibility.request(); refresh() }
-                }
+    private var arrangeSection: some View {
+        Section {
+            ArrangeGuideView()
+                .padding(.vertical, 6)
+            VStack(alignment: .leading, spacing: 6) {
+                step(1, "Hold ⌘ and drag any icon in the menu bar.")
+                step(2, "Drop it left of the single divider to hide it, or left of the double divider to always hide it.")
+                step(3, "Click ‹ to show the hidden icons again, or use one of the reveal options below.")
             }
             HStack {
-                Label("Screen Recording (captured icons only)", systemImage: screenRecordingGranted ? "checkmark.circle.fill" : "xmark.circle")
-                Spacer()
-                if !screenRecordingGranted {
-                    Button("Request…") { Permission.screenRecording.request(); refresh() }
+                Button(module.isAlwaysHiddenSectionCollapsed ? "Show all sections while I arrange" : "Tuck the sections away") {
+                    module.setAlwaysHiddenSectionCollapsed(!module.isAlwaysHiddenSectionCollapsed)
                 }
+                Text("Both dividers stay visible while the pointer is in the menu bar.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
+        } header: {
+            Text("Arrange the menu bar")
+        } footer: {
+            Text("Positions are remembered by macOS, so nothing needs to be saved here. Icons of apps that reset their position on launch are put back where you left them.")
+        }
+    }
+
+    private func step(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(number)")
+                .font(.caption.bold())
+                .frame(width: 18, height: 18)
+                .background(Color.accentColor.opacity(0.2), in: Circle())
+            Text(text)
         }
     }
 
@@ -80,7 +94,7 @@ public struct MenuBarSettingsView: View {
 
     private var barSection: some View {
         Section("Hidden items bar") {
-            Toggle("Clicking the Garakuta icon opens the bar instead of expanding the menu bar", isOn: $settings.secondaryBarEnabled)
+            Toggle("Clicking ‹ opens the bar instead of expanding the menu bar", isOn: $settings.secondaryBarEnabled)
             Picker("Position", selection: $settings.barPlacement) {
                 ForEach(MenuBarSettings.BarPlacement.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
@@ -95,68 +109,15 @@ public struct MenuBarSettingsView: View {
         }
     }
 
-    private var arrangeSection: some View {
-        Section("Automatic arrangement") {
-            Toggle("Hide the lowest-priority items when the menu bar runs out of room", isOn: $settings.autoArrangeByWidth)
+    private var autoArrangeSection: some View {
+        Section("When the menu bar runs out of room") {
+            Toggle("Hide the leftmost icons automatically", isOn: $settings.autoArrangeByWidth)
             LabeledContent("Temporary show duration") {
                 Slider(value: $settings.temporarySwapDuration, in: 3...30, step: 1) { Text("") }
                 Text("\(Int(settings.temporarySwapDuration)) s").monospacedDigit().frame(width: 52)
             }
-            Text("Priority follows the order of the item list below; drag to reorder. Items not in the list are hidden first.")
+            Text("Icons nearest the notch (or the app menus) go first and come back when there is room again. Keep the ones you care about on the right.")
                 .font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    private var itemsSection: some View {
-        Section {
-            if !accessibilityGranted {
-                Text("Grant Accessibility to list other apps' menu bar items.").foregroundStyle(.secondary)
-            } else if discovered.isEmpty {
-                Text("No items found.").foregroundStyle(.secondary)
-            } else {
-                List {
-                    ForEach(orderedDiscovered, id: \.item.id) { entry in
-                        HStack {
-                            if let icon = NSRunningApplication(processIdentifier: entry.item.ownerPID)?.icon {
-                                Image(nsImage: icon).resizable().frame(width: 18, height: 18)
-                            }
-                            Text(entry.item.displayName).lineLimit(1)
-                            Spacer()
-                            Picker("", selection: Binding(
-                                get: { entry.section },
-                                set: { newSection in moveItem(entry.item, to: newSection) }
-                            )) {
-                                ForEach(MenuBarSection.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                            }
-                            .labelsHidden()
-                            .frame(width: 140)
-                            Menu {
-                                ForEach(settings.groups) { group in
-                                    Button(group.memberKeys.contains(entry.item.stableKey) ? "Remove from \(group.name)" : "Add to \(group.name)") {
-                                        toggleMembership(of: entry.item, in: group.id)
-                                    }
-                                }
-                                if settings.groups.isEmpty { Text("No groups yet") }
-                            } label: {
-                                Image(systemName: "square.grid.2x2")
-                            }
-                            .menuStyle(.borderlessButton)
-                            .frame(width: 28)
-                        }
-                    }
-                    .onMove { from, to in reorderPriority(from: from, to: to) }
-                }
-                .frame(minHeight: 160)
-            }
-            if !statusMessage.isEmpty {
-                Text(statusMessage).font(.caption).foregroundStyle(.secondary)
-            }
-        } header: {
-            HStack {
-                Text("Menu bar items")
-                Spacer()
-                Button("Refresh") { refresh() }
-            }
         }
     }
 
@@ -172,17 +133,17 @@ public struct MenuBarSettingsView: View {
                 }
             }
             Button("Add spacer") { settings.spacers.append(.init()) }
-            Text("Position spacers by ⌘-dragging them in the menu bar.").font(.caption).foregroundStyle(.secondary)
+            Text("A spacer is an empty icon. ⌘-drag it wherever you want a gap.").font(.caption).foregroundStyle(.secondary)
         }
     }
 
     private var groupsSection: some View {
-        Section("Groups") {
+        Section {
             ForEach($settings.groups) { $group in
                 HStack {
                     Image(systemName: "square.grid.2x2")
                     TextField("Name", text: $group.name)
-                    Text("\(group.memberKeys.count) items").foregroundStyle(.secondary)
+                    membersMenu(for: $group)
                     Button(role: .destructive) { settings.groups.removeAll { $0.id == group.id } } label: { Image(systemName: "minus.circle") }
                         .buttonStyle(.borderless)
                 }
@@ -196,56 +157,70 @@ public struct MenuBarSettingsView: View {
                     newGroupName = ""
                 }
             }
-            Text("A group shows as one icon in the menu bar; clicking it lists its members. Assign members with the grid button in the item list.")
-                .font(.caption).foregroundStyle(.secondary)
+        } header: {
+            Text("Groups")
+        } footer: {
+            Text("A group is one icon in the menu bar; clicking it lists its members. Pick the members here, then hide the originals with ⌘-drag.")
+        }
+    }
+
+    @ViewBuilder
+    private func membersMenu(for group: Binding<MenuBarSettings.Group>) -> some View {
+        if accessibilityGranted {
+            Menu {
+                if discovered.isEmpty {
+                    Text("No icons found")
+                } else {
+                    ForEach(discovered, id: \.id) { item in
+                        Toggle(item.displayName, isOn: Binding(
+                            get: { group.wrappedValue.memberKeys.contains(item.stableKey) },
+                            set: { on in
+                                if on { group.wrappedValue.memberKeys.append(item.stableKey) }
+                                else { group.wrappedValue.memberKeys.removeAll { $0 == item.stableKey } }
+                            }
+                        ))
+                    }
+                }
+                Divider()
+                Button("Refresh list") { refresh() }
+            } label: {
+                Text("\(group.wrappedValue.memberKeys.count) members")
+            }
+            .fixedSize()
+        } else {
+            Text("Grant Accessibility to pick members").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var permissionsSection: some View {
+        Section {
+            HStack {
+                Label("Accessibility", systemImage: accessibilityGranted ? "checkmark.circle.fill" : "xmark.circle")
+                Spacer()
+                if !accessibilityGranted {
+                    Button("Request…") { Permission.accessibility.request(); refresh() }
+                }
+            }
+            HStack {
+                Label("Screen Recording", systemImage: screenRecordingGranted ? "checkmark.circle.fill" : "xmark.circle")
+                Spacer()
+                if !screenRecordingGranted {
+                    Button("Request…") { Permission.screenRecording.request(); refresh() }
+                }
+            }
+        } header: {
+            Text("Permissions")
+        } footer: {
+            Text("⌘-drag needs no permission. Accessibility lets the hidden items bar and groups list icons by name and click them; Screen Recording adds captured icon images.")
         }
     }
 
     // MARK: Helpers
 
-    private var orderedDiscovered: [(item: MenuBarItem, section: MenuBarSection)] {
-        let order = settings.priorityOrder
-        return discovered.sorted { a, b in
-            let ra = order.firstIndex(of: a.item.stableKey) ?? Int.max
-            let rb = order.firstIndex(of: b.item.stableKey) ?? Int.max
-            if ra != rb { return ra < rb }
-            return a.item.frame.minX > b.item.frame.minX
-        }
-    }
-
     private func refresh() {
         accessibilityGranted = Permission.accessibility.isGranted
         screenRecordingGranted = Permission.screenRecording.isGranted
-        discovered = module.items()
-    }
-
-    private func moveItem(_ item: MenuBarItem, to section: MenuBarSection) {
-        statusMessage = "Moving \(item.displayName)…"
-        Task { @MainActor in
-            do {
-                try await module.moveWithRetry(item, to: section)
-                statusMessage = ""
-            } catch {
-                statusMessage = "Could not move \(item.displayName): \(error)"
-            }
-            settings = module.settings
-            refresh()
-        }
-    }
-
-    private func reorderPriority(from: IndexSet, to: Int) {
-        var keys = orderedDiscovered.map(\.item.stableKey)
-        keys.move(fromOffsets: from, toOffset: to)
-        settings.priorityOrder = keys
-    }
-
-    private func toggleMembership(of item: MenuBarItem, in groupID: UUID) {
-        guard let index = settings.groups.firstIndex(where: { $0.id == groupID }) else { return }
-        if let at = settings.groups[index].memberKeys.firstIndex(of: item.stableKey) {
-            settings.groups[index].memberKeys.remove(at: at)
-        } else {
-            settings.groups[index].memberKeys.append(item.stableKey)
-        }
+        discovered = module.items().map(\.item).sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 }
 

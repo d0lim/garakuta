@@ -109,22 +109,15 @@ final class AutoArranger {
 
     // MARK: Helpers
 
-    /// Lowest-priority candidate for demotion. Items the user explicitly pinned to Visible and system items are
-    /// never candidates, so auto-arrange cannot fight enforceAssignments.
+    /// The leftmost visible item: the one about to run under the notch, and by convention the one the user cares
+    /// about least, since icons closer to the clock are the ones they keep. Items explicitly pinned to Visible and
+    /// system items are never candidates, so auto-arrange cannot fight enforceAssignments.
     private func lowestPriority(among items: [MenuBarItem]) -> MenuBarItem? {
         guard let module else { return nil }
-        let order = module.settings.priorityOrder
         let assignments = module.settings.sectionAssignments
-        let candidates = items.filter { item in
-            assignments[item.stableKey] != .visible && !MenuBarItemScanner.isSystemItem(bundleIdentifier: item.bundleIdentifier)
-        }
-        func rank(_ item: MenuBarItem) -> Int { order.firstIndex(of: item.stableKey) ?? Int.max }
-        // Highest rank value = lowest priority; among ties prefer the leftmost (closest to overflow).
-        return candidates.max { a, b in
-            let ra = rank(a), rb = rank(b)
-            if ra != rb { return ra < rb }
-            return a.frame.minX > b.frame.minX
-        }
+        return items
+            .filter { assignments[$0.stableKey] != .visible && !MenuBarItemScanner.isSystemItem(bundleIdentifier: $0.bundleIdentifier) }
+            .min { $0.frame.minX < $1.frame.minX }
     }
 
     private func frontmostAppMenuMaxX() -> CGFloat? {

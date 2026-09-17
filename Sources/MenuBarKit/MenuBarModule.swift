@@ -76,7 +76,6 @@ public final class MenuBarModule: NSObject, FeatureModule {
         hiddenSeparator = hidden
         appIcon = icon
 
-        icon.statusItem.button?.image = icon.separatorImage
         icon.statusItem.button?.target = self
         icon.statusItem.button?.action = #selector(appIconClicked(_:))
         icon.statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -239,6 +238,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
     }
 
     private func applyCollapseState() {
+        appIcon?.setChevron(pointingLeft: isHiddenSectionCollapsed)
         hiddenSeparator?.setCollapsed(isHiddenSectionCollapsed)
         alwaysHiddenSeparator?.setCollapsed(isAlwaysHiddenSectionCollapsed)
     }

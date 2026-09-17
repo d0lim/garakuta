@@ -1,7 +1,7 @@
 import AppKit
 
-/// One of our own status items. The app icon is a normal item; the two separators switch between a short
-/// visible length and a very long one that pushes everything to their left off screen.
+/// One of our own status items. The main item is a chevron that reveals or hides the sections; the two separators
+/// switch between a short visible length and a very long one that pushes everything to their left off screen.
 @MainActor
 final class ControlItem {
     enum Kind: String {
@@ -56,12 +56,39 @@ final class ControlItem {
         statusItem.button?.image = collapsed ? nil : separatorImage
     }
 
+    /// The main item points at the hidden items while they are tucked away and flips once they are shown.
+    func setChevron(pointingLeft: Bool) {
+        let name = pointingLeft ? "chevron.left" : "chevron.right"
+        let description = pointingLeft ? "Show hidden menu bar items" : "Hide menu bar items"
+        statusItem.button?.image = NSImage(systemSymbolName: name, accessibilityDescription: description)?
+            .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
+    }
+
     var separatorImage: NSImage? {
         switch kind {
-        case .appIcon: AppGlyph.image(accessibilityDescription: "Garakuta")
-        case .hiddenSeparator: NSImage(systemSymbolName: "chevron.compact.left", accessibilityDescription: "Hidden items")
-        case .alwaysHiddenSeparator: NSImage(systemSymbolName: "chevron.left.2", accessibilityDescription: "Always hidden items")
+        case .appIcon: nil
+        case .hiddenSeparator: Self.dividerImage(bars: 1, accessibilityDescription: "Hidden items start here")
+        case .alwaysHiddenSeparator: Self.dividerImage(bars: 2, accessibilityDescription: "Always hidden items start here")
         }
+    }
+
+    /// Thin vertical bars marking where a section starts, drawn as a template so they follow the menu bar tint.
+    private static func dividerImage(bars: Int, accessibilityDescription: String) -> NSImage {
+        let size = NSSize(width: 18, height: 18)
+        let image = NSImage(size: size, flipped: false) { _ in
+            let barWidth: CGFloat = 2, gap: CGFloat = 3, height: CGFloat = 12
+            let total = CGFloat(bars) * barWidth + CGFloat(bars - 1) * gap
+            var x = (size.width - total) / 2
+            NSColor.black.setFill()
+            for _ in 0..<bars {
+                NSBezierPath(roundedRect: NSRect(x: x, y: (size.height - height) / 2, width: barWidth, height: height), xRadius: 1, yRadius: 1).fill()
+                x += barWidth + gap
+            }
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = accessibilityDescription
+        return image
     }
 
     func remove() {

@@ -209,8 +209,8 @@ struct OnboardingView: View {
 
     private var menuBarTour: some View {
         VStack(alignment: .leading, spacing: 18) {
-            header("Your menu bar, in three sections", "Garakuta adds its icon and two separators. Everything left of ‹ is hidden, everything left of « is always hidden. ⌘-drag any icon across a separator to move it.")
-            sectionDiagram
+            header("Your menu bar, in three sections", "Garakuta adds a ‹ button and two dividers. Everything left of the single divider is hidden, everything left of the double divider is always hidden. Hold ⌘ and drag any icon across a divider to move it.")
+            ArrangeGuideView()
             HStack(spacing: 12) {
                 Button(model.hiddenSectionCollapsed ? "Show hidden items now" : "Hide them again") { model.toggleHiddenSection() }
                     .buttonStyle(.borderedProminent)
@@ -225,31 +225,11 @@ struct OnboardingView: View {
                     }
                 }
                 .font(.callout).foregroundStyle(.secondary)
-                Text("Assign icons by name, add spacers and groups in Settings › Menu Bar.").font(.caption).foregroundStyle(.secondary)
+                Text("Spacers, groups and the hidden items bar live in Settings › Menu Bar.").font(.caption).foregroundStyle(.secondary)
             } else {
-                Text("Grant Accessibility to see the icons listed here by name and move them from Settings.").font(.caption).foregroundStyle(.secondary)
+                Text("Grant Accessibility so the hidden items bar and groups can list icons by name.").font(.caption).foregroundStyle(.secondary)
             }
         }
-    }
-
-    private var sectionDiagram: some View {
-        HStack(spacing: 6) {
-            sectionBox("Always hidden", "«", dim: model.hiddenSectionCollapsed)
-            sectionBox("Hidden", "‹", dim: model.hiddenSectionCollapsed)
-            sectionBox("Visible", "●", dim: false)
-            RoundedRectangle(cornerRadius: 6).fill(.secondary.opacity(0.25)).frame(width: 90, height: 44)
-                .overlay(Text("System").font(.caption2).foregroundStyle(.secondary))
-        }
-    }
-
-    private func sectionBox(_ title: String, _ glyph: String, dim: Bool) -> some View {
-        VStack(spacing: 4) {
-            Text(glyph).font(.title3)
-            Text(title).font(.caption2)
-        }
-        .frame(maxWidth: .infinity).frame(height: 44)
-        .background((dim ? Color.secondary.opacity(0.12) : Color.accentColor.opacity(0.18)), in: RoundedRectangle(cornerRadius: 6))
-        .opacity(dim ? 0.5 : 1)
     }
 
     private var notchTour: some View {

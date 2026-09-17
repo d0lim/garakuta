@@ -71,8 +71,6 @@ public struct MenuBarSettings: Codable, Equatable, Sendable {
     // M04
     public var autoArrangeByWidth = false
     public var temporarySwapDuration: Double = 8
-    /// Stable keys in priority order; earlier entries stay visible longest. Unknown items have the lowest priority.
-    public var priorityOrder: [String] = []
 
     // M05
     public var spacers: [Spacer] = []
@@ -99,7 +97,6 @@ public struct MenuBarSettings: Codable, Equatable, Sendable {
         imageMode = try c.decodeIfPresent(ImageMode.self, forKey: .imageMode) ?? d.imageMode
         autoArrangeByWidth = try c.decodeIfPresent(Bool.self, forKey: .autoArrangeByWidth) ?? d.autoArrangeByWidth
         temporarySwapDuration = try c.decodeIfPresent(Double.self, forKey: .temporarySwapDuration) ?? d.temporarySwapDuration
-        priorityOrder = try c.decodeIfPresent([String].self, forKey: .priorityOrder) ?? d.priorityOrder
         spacers = try c.decodeIfPresent([Spacer].self, forKey: .spacers) ?? d.spacers
         groups = try c.decodeIfPresent([Group].self, forKey: .groups) ?? d.groups
         sectionAssignments = try c.decodeIfPresent([String: MenuBarSection].self, forKey: .sectionAssignments) ?? d.sectionAssignments
