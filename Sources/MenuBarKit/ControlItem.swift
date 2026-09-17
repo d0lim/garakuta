@@ -2,7 +2,8 @@ import AppKit
 
 /// One of our own status items. The chevron is the button that shows or tucks away the hidden section; the two
 /// boundaries switch between a short length and a very long one that pushes everything to their left off screen.
-/// The hidden boundary sits right next to the chevron and draws nothing, so the chevron reads as the boundary.
+/// The hidden boundary sits right next to the chevron, as narrow as possible and drawing nothing, so the chevron
+/// reads as the boundary.
 /// (Drawing the chevron at the tail of the long item itself does not work: the menu bar host renders only the
 /// centred image of an item, and an image as wide as the item is not rendered at all.)
 @MainActor
@@ -29,7 +30,9 @@ final class ControlItem {
         var expandedLength: CGFloat {
             switch self {
             case .chevron: 22
-            case .hiddenSeparator: 6
+            // As narrow as the bar allows: the boundary must stay in the bar (an item that is hidden and shown
+            // again loses its place among the others), but it should not read as a gap beside the chevron.
+            case .hiddenSeparator: 1
             case .alwaysHiddenSeparator: 18
             }
         }
@@ -64,7 +67,7 @@ final class ControlItem {
         isCollapsed = collapsed
         statusItem.length = collapsed ? Self.collapsedLength : kind.expandedLength
         // With a 10k-point item the centred image would be far off screen anyway; drop it so the visible tail of
-        // the item reads as empty menu bar. The hidden boundary never draws anything.
+        // the item reads as empty menu bar.
         statusItem.button?.image = collapsed || kind != .alwaysHiddenSeparator ? nil
             : Self.dividerImage(bars: 2, accessibilityDescription: "Always hidden items start here")
     }

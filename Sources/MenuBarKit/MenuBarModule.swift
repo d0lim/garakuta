@@ -255,10 +255,13 @@ public final class MenuBarModule: NSObject, FeatureModule {
         }
     }
 
+    /// Where the hidden section ends.
+    private var hiddenBoundaryFrame: CGRect? { hiddenSeparator?.frame }
+
     /// Other apps' status items with the section each currently sits in. Empty without Accessibility.
     public func items() -> [(item: MenuBarItem, section: MenuBarSection)] {
         let all = scanner.scan()
-        guard let hiddenFrame = hiddenSeparator?.frame, let alwaysHiddenFrame = alwaysHiddenSeparator?.frame else {
+        guard let hiddenFrame = hiddenBoundaryFrame, let alwaysHiddenFrame = alwaysHiddenSeparator?.frame else {
             return all.map { ($0, .visible) }
         }
         return all.map { ($0, classify($0, hiddenFrame: hiddenFrame, alwaysHiddenFrame: alwaysHiddenFrame)) }
@@ -305,7 +308,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
         scanner.invalidate()
         var all = scanner.scan()
         guard let current = all.first(where: { $0.id == item.id }),
-              let hiddenFrame = hiddenSeparator?.frame,
+              let hiddenFrame = hiddenBoundaryFrame,
               let alwaysHiddenFrame = alwaysHiddenSeparator?.frame else {
             throw MoveFailure.itemNotFound
         }
@@ -327,7 +330,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
         scanner.invalidate()
         all = scanner.scan()
         guard let moved = all.first(where: { $0.id == item.id }),
-              let newHidden = hiddenSeparator?.frame,
+              let newHidden = hiddenBoundaryFrame,
               let newAlwaysHidden = alwaysHiddenSeparator?.frame else {
             throw MoveFailure.itemNotFound
         }
