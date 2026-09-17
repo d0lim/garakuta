@@ -9,12 +9,15 @@ VERSION="${VERSION:-$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null | 
 VERSION="${VERSION:-0.0.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 swift build -c "$CONFIG"
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/Garakuta"
+BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 APP="build/Garakuta.app"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Garakuta"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
+cp "$BIN_DIR/Garakuta" "$APP/Contents/MacOS/Garakuta"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# Now-playing helper: loaded into the system perl interpreter at runtime (see Sources/NowPlayingBridge).
+cp "$BIN_DIR/libNowPlayingBridge.dylib" "$APP/Contents/Frameworks/libNowPlayingBridge.dylib"
+cp Resources/nowplaying.pl "$APP/Contents/Resources/nowplaying.pl"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -34,6 +37,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 # Ad-hoc signature with a designated requirement based on the bundle identifier instead of the default code hash,
 # so Accessibility and Screen Recording grants survive rebuilds and updates.
+codesign --force --sign - "$APP/Contents/Frameworks/libNowPlayingBridge.dylib"
 codesign --force --sign - --identifier com.d0lim.garakuta \
   --requirements '=designated => identifier "com.d0lim.garakuta"' "$APP"
 echo "built $APP ($VERSION, build $BUILD_NUMBER)"

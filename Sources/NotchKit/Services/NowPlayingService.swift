@@ -1,13 +1,178 @@
 import AppKit
 import Foundation
 
-/// Polls Music and Spotify through AppleScript while enabled. MediaRemote is not used because macOS 15.4+
-/// requires an entitlement for it. Scripts are only compiled for players that are currently running, which
-/// avoids the "Where is Spotify?" dialog on Macs without that app. Needs Automation permission on first use.
+/// What the system says is playing, from any app that publishes to the system's now-playing service: Music,
+/// Spotify, browsers, podcast and video players alike.
+///
+/// The service refuses calls from processes Apple has not signed, so the app does not talk to it directly. A small
+/// helper library (Sources/NowPlayingBridge) is loaded into the system perl interpreter, which the service does
+/// answer, and streams changes back over a pipe. When the helper cannot run, the older Apple Events polling of
+/// Music and Spotify takes over; it needs Automation permission on first use.
 @MainActor
 @Observable
 public final class NowPlayingService {
-    public enum Player: String, Sendable, CaseIterable {
+    public struct Track: Equatable, Sendable {
+        /// Name of the app playing, for display.
+        public var sourceName: String
+        public var bundleIdentifier: String?
+        public var isPlaying: Bool
+        public var title: String
+        public var artist: String
+        public var album: String
+        public var duration: TimeInterval
+        /// Progress as the source last reported it, at `reportedAt`, advancing at `playbackRate`.
+        public var reportedElapsed: TimeInterval
+        public var reportedAt: Date
+        public var playbackRate: Double
+        /// Changes whenever the artwork does; the image itself lives in `NowPlayingService.artwork`.
+        var artworkKey: String?
+
+        /// Current playback position, extrapolated from the last report while playing.
+        public var position: TimeInterval {
+            let elapsed = isPlaying ? reportedElapsed + Date().timeIntervalSince(reportedAt) * playbackRate : reportedElapsed
+            return duration > 0 ? min(max(elapsed, 0), duration) : max(elapsed, 0)
+        }
+
+        public var displayTitle: String { title.isEmpty ? sourceName : title }
+    }
+
+    public private(set) var track: Track?
+    public private(set) var artwork: NSImage?
+    public var isEnabled = false { didSet { isEnabled ? start() : stop() } }
+    var onChange: (() -> Void)?
+
+    /// How long a paused item keeps its live activity before it is considered finished with.
+    static let pausedActivityLifetime: TimeInterval = 5 * 60
+    private var pausedAt: Date?
+    private var pauseExpiry: Task<Void, Never>?
+
+    private let bridge = NowPlayingBridgeClient()
+    private var usingBridge = false
+
+    // Apple Events fallback
+    private var pollTimer: Timer?
+    private var pollInFlight = false
+    private var artworkTask: Task<Void, Never>?
+    private var lastArtworkURL: URL?
+    private let executor = AppleScriptExecutor()
+
+    public init() {
+        bridge.onRecord = { [weak self] record in self?.apply(record) }
+        bridge.onStop = { [weak self] in
+            // The helper died and is not coming back: fall back to polling so music still shows up.
+            guard let self, isEnabled, usingBridge else { return }
+            usingBridge = false
+            startPolling()
+        }
+    }
+
+    /// True when a live activity should be shown: playing, or paused only recently.
+    public var isActive: Bool {
+        guard let track else { return false }
+        if track.isPlaying { return true }
+        guard let pausedAt else { return true }
+        return Date().timeIntervalSince(pausedAt) < Self.pausedActivityLifetime
+    }
+
+    private func start() {
+        if bridge.isAvailable, bridge.start() {
+            usingBridge = true
+        } else {
+            usingBridge = false
+            startPolling()
+        }
+    }
+
+    private func stop() {
+        bridge.stop()
+        usingBridge = false
+        stopPolling()
+        publish(nil)
+    }
+
+    // MARK: Controls
+
+    public func playPause() { command(.togglePlayPause, script: "playpause") }
+    public func next() { command(.nextTrack, script: "next track") }
+    public func previous() { command(.previousTrack, script: "previous track") }
+
+    private func command(_ command: NowPlayingBridgeClient.Command, script: String) {
+        if usingBridge {
+            bridge.send(command)
+            return
+        }
+        guard let player = track.flatMap({ ScriptedPlayer(bundleIdentifier: $0.bundleIdentifier) }), player.isRunning else { return }
+        let executor = self.executor
+        Task { @MainActor [weak self] in
+            _ = await executor.run("tell application \"\(player.rawValue)\" to \(script)", cacheKey: nil)
+            try? await Task.sleep(for: .milliseconds(300))
+            self?.poll()
+        }
+    }
+
+    // MARK: Publishing
+
+    private func publish(_ new: Track?) {
+        let old = track
+        track = new
+        if let new, let old, new.isPlaying != old.isPlaying || new.title != old.title {
+            pausedAt = new.isPlaying ? nil : Date()
+        } else if let new, old == nil {
+            pausedAt = new.isPlaying ? nil : Date()
+        } else if new == nil {
+            pausedAt = nil
+        }
+        schedulePauseExpiry()
+        onChange?()
+    }
+
+    private func schedulePauseExpiry() {
+        pauseExpiry?.cancel()
+        guard pausedAt != nil else { return }
+        pauseExpiry = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(Self.pausedActivityLifetime + 1))
+            guard !Task.isCancelled else { return }
+            self?.onChange?()
+        }
+    }
+
+    // MARK: Bridge records
+
+    private func apply(_ record: NowPlayingBridgeClient.Record) {
+        let info = record.info
+        guard !info.isEmpty || record.pid > 0 else {
+            if track != nil { artwork = nil; publish(nil) }
+            return
+        }
+        let app = record.pid > 0 ? NSRunningApplication(processIdentifier: pid_t(record.pid)) : nil
+        func string(_ key: String) -> String { info["kMRMediaRemoteNowPlayingInfo\(key)"] as? String ?? "" }
+        func number(_ key: String) -> Double? { (info["kMRMediaRemoteNowPlayingInfo\(key)"] as? NSNumber)?.doubleValue }
+        let title = string("Title")
+        // A source that has registered but has nothing loaded reports neither a title nor a duration.
+        guard !title.isEmpty || (number("Duration") ?? 0) > 0 else {
+            if track != nil { artwork = nil; publish(nil) }
+            return
+        }
+        let rate = number("PlaybackRate") ?? (record.playing ? 1 : 0)
+        let artworkData = info["kMRMediaRemoteNowPlayingInfoArtworkData"] as? Data
+        let artworkKey = string("ArtworkIdentifier").nilIfEmpty ?? string("ContentItemIdentifier").nilIfEmpty
+            ?? artworkData.map { "\($0.count)" }
+        let new = Track(sourceName: app?.localizedName ?? "Now Playing", bundleIdentifier: app?.bundleIdentifier,
+                        isPlaying: record.playing, title: title, artist: string("Artist"), album: string("Album"),
+                        duration: number("Duration") ?? 0, reportedElapsed: number("ElapsedTime") ?? 0,
+                        reportedAt: info["kMRMediaRemoteNowPlayingInfoTimestamp"] as? Date ?? Date(),
+                        playbackRate: record.playing ? max(rate, 0.01) : 0, artworkKey: artworkKey)
+        if let artworkData, !artworkData.isEmpty, artworkKey != track?.artworkKey || artwork == nil {
+            artwork = NSImage(data: artworkData)
+        } else if artworkData == nil && artworkKey != track?.artworkKey {
+            artwork = nil
+        }
+        if new != track { publish(new) }
+    }
+
+    // MARK: Apple Events fallback (Music and Spotify)
+
+    enum ScriptedPlayer: String, CaseIterable {
         case music = "Music"
         case spotify = "Spotify"
 
@@ -17,91 +182,78 @@ public final class NowPlayingService {
             case .spotify: "com.spotify.client"
             }
         }
+
+        init?(bundleIdentifier: String?) {
+            guard let match = Self.allCases.first(where: { $0.bundleIdentifier == bundleIdentifier }) else { return nil }
+            self = match
+        }
+
+        @MainActor var isRunning: Bool {
+            !NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).isEmpty
+        }
     }
-
-    public struct Track: Equatable, Sendable {
-        public var player: Player
-        public var isPlaying: Bool
-        public var title: String
-        public var artist: String
-        public var album: String
-        public var position: TimeInterval
-        public var duration: TimeInterval
-        public var artworkURL: URL?
-    }
-
-    public private(set) var track: Track?
-    public private(set) var artwork: NSImage?
-    public var isEnabled = false { didSet { isEnabled ? startPolling() : stopPolling() } }
-    var onChange: (() -> Void)?
-
-    private var timer: Timer?
-    private var artworkTask: Task<Void, Never>?
-    private var lastArtworkURL: URL?
-    /// One poll at a time; a hung player or the first Automation consent dialog must not stack requests.
-    private var pollInFlight = false
-    private let executor = AppleScriptExecutor()
-
-    public init() {}
 
     private func startPolling() {
-        guard timer == nil else { return }
+        guard pollTimer == nil else { return }
         poll()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
             Task { @MainActor in NotchServices.shared.nowPlaying.poll() }
         }
     }
 
     private func stopPolling() {
-        timer?.invalidate()
-        timer = nil
+        pollTimer?.invalidate()
+        pollTimer = nil
+        artworkTask?.cancel()
+        lastArtworkURL = nil
     }
 
-    private func isRunning(_ player: Player) -> Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: player.bundleIdentifier).isEmpty
-    }
-
+    /// Scripts are only compiled for players that are running, which avoids "Where is Spotify?" dialogs on Macs
+    /// without that app. One poll at a time: a hung player or the first consent dialog must not stack requests.
     func poll() {
-        guard !pollInFlight else { return }
-        let running = Player.allCases.filter { isRunning($0) }
+        guard !usingBridge, !pollInFlight else { return }
+        let running = ScriptedPlayer.allCases.filter { $0.isRunning }
         guard !running.isEmpty else {
-            if track != nil { publish(nil) }
+            if track != nil { artwork = nil; publish(nil) }
             return
         }
         pollInFlight = true
         let executor = self.executor
         Task { @MainActor [weak self] in
-            var found: Track?
+            var found: (Track, URL?)?
             for player in running {
                 let output = await executor.run(Self.source(for: player), cacheKey: player.rawValue)
-                if let output, let t = Self.parse(output, player: player) {
-                    // Prefer whichever is actually playing.
-                    if found == nil || (t.isPlaying && found?.isPlaying == false) { found = t }
+                if let output, let parsed = Self.parse(output, player: player) {
+                    if found == nil || (parsed.0.isPlaying && found?.0.isPlaying == false) { found = parsed }
                 }
             }
             guard let self else { return }
             pollInFlight = false
-            if found != track { publish(found) }
+            if let found {
+                updateArtwork(from: found.1)
+                if found.0 != track { publish(found.0) }
+            } else if track != nil {
+                updateArtwork(from: nil)
+                publish(nil)
+            }
         }
     }
 
-    private func publish(_ new: Track?) {
-        track = new
-        updateArtwork()
-        onChange?()
-    }
-
-    private static func parse(_ result: String, player: Player) -> Track? {
+    private static func parse(_ result: String, player: ScriptedPlayer) -> (Track, URL?)? {
         guard result != "stopped" else { return nil }
         let parts = result.components(separatedBy: "|")
         guard parts.count >= 6 else { return nil }
         func number(_ s: String) -> TimeInterval { TimeInterval(s.replacingOccurrences(of: ",", with: ".")) ?? 0 }
-        let artwork = parts.count > 6 ? URL(string: parts[6...].joined(separator: "|")) : nil
-        return Track(player: player, isPlaying: parts[0] == "playing", title: parts[1], artist: parts[2], album: parts[3],
-                     position: number(parts[4]), duration: number(parts[5]), artworkURL: artwork)
+        let artworkURL = parts.count > 6 ? URL(string: parts[6...].joined(separator: "|")) : nil
+        let playing = parts[0] == "playing"
+        let track = Track(sourceName: player.rawValue, bundleIdentifier: player.bundleIdentifier, isPlaying: playing,
+                          title: parts[1], artist: parts[2], album: parts[3], duration: number(parts[5]),
+                          reportedElapsed: number(parts[4]), reportedAt: Date(), playbackRate: playing ? 1 : 0,
+                          artworkKey: artworkURL?.absoluteString)
+        return (track, artworkURL)
     }
 
-    private static func source(for player: Player) -> String {
+    private static func source(for player: ScriptedPlayer) -> String {
         switch player {
         case .music:
             return """
@@ -128,8 +280,8 @@ public final class NowPlayingService {
         }
     }
 
-    private func updateArtwork() {
-        guard let url = track?.artworkURL else {
+    private func updateArtwork(from url: URL?) {
+        guard let url else {
             artwork = nil
             lastArtworkURL = nil
             return
@@ -142,21 +294,158 @@ public final class NowPlayingService {
             self?.artwork = NSImage(data: data)
         }
     }
+}
 
-    // MARK: Controls
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
+}
 
-    public func playPause() { control("playpause") }
-    public func next() { control("next track") }
-    public func previous() { control("previous track") }
+/// Runs the now-playing helper (Resources/nowplaying.pl + libNowPlayingBridge.dylib) inside the system perl
+/// interpreter and parses the records it streams. See Sources/NowPlayingBridge for the protocol.
+final class NowPlayingBridgeClient: @unchecked Sendable {
+    /// One helper record. `info` holds property-list values only (strings, numbers, dates, data), which are safe to
+    /// hand across threads even though the type system cannot see that.
+    struct Record: @unchecked Sendable {
+        var info: [String: Any]
+        var playing: Bool
+        var pid: Int
+    }
 
-    private func control(_ command: String) {
-        guard let player = track?.player, isRunning(player) else { return }
-        let executor = self.executor
-        Task { @MainActor [weak self] in
-            _ = await executor.run("tell application \"\(player.rawValue)\" to \(command)", cacheKey: nil)
-            try? await Task.sleep(for: .milliseconds(300))
-            self?.poll()
+    enum Command: Int {
+        case play = 0, pause = 1, togglePlayPause = 2, stop = 3, nextTrack = 4, previousTrack = 5
+    }
+
+    @MainActor var onRecord: ((Record) -> Void)?
+    /// Called once the helper has failed repeatedly and restarts have been given up.
+    @MainActor var onStop: (() -> Void)?
+
+    nonisolated init() {}
+
+    private static let interpreter = URL(fileURLWithPath: "/usr/bin/perl")
+    private let script = Bundle.main.url(forResource: "nowplaying", withExtension: "pl")
+    private let library = Bundle.main.privateFrameworksURL?.appendingPathComponent("libNowPlayingBridge.dylib")
+
+    private let lock = NSLock()
+    private var process: Process?
+    private var buffer = Data()
+    private var wanted = false
+    private var failures = 0
+
+    var isAvailable: Bool {
+        guard let script, let library else { return false }
+        let fm = FileManager.default
+        return fm.isExecutableFile(atPath: Self.interpreter.path) && fm.fileExists(atPath: script.path) && fm.fileExists(atPath: library.path)
+    }
+
+    /// Starts streaming. Returns false when the helper could not be launched at all.
+    @MainActor
+    @discardableResult
+    func start() -> Bool {
+        lock.lock(); wanted = true; failures = 0; lock.unlock()
+        return launch()
+    }
+
+    func stop() {
+        lock.lock()
+        wanted = false
+        let running = process
+        process = nil
+        lock.unlock()
+        running?.terminate()
+    }
+
+    private func launch() -> Bool {
+        guard let script, let library else { return false }
+        let process = Process()
+        process.executableURL = Self.interpreter
+        process.arguments = [script.path, library.path]
+        var env = ProcessInfo.processInfo.environment
+        env["GARAKUTA_NOW_PLAYING_MODE"] = "stream"
+        process.environment = env
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.standardError
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            if data.isEmpty {
+                handle.readabilityHandler = nil
+                return
+            }
+            self?.consume(data)
         }
+        process.terminationHandler = { [weak self] _ in
+            pipe.fileHandleForReading.readabilityHandler = nil
+            self?.processEnded()
+        }
+        do {
+            try process.run()
+        } catch {
+            NSLog("now-playing helper failed to start: %@", String(describing: error))
+            return false
+        }
+        lock.lock()
+        self.process = process
+        buffer.removeAll()
+        lock.unlock()
+        return true
+    }
+
+    private func processEnded() {
+        lock.lock()
+        process = nil
+        let restart = wanted
+        failures += 1
+        let attempt = failures
+        lock.unlock()
+        guard restart else { return }
+        // A helper that exits within seconds of starting is broken; stop retrying after a few attempts.
+        guard attempt <= 5 else {
+            NSLog("now-playing helper keeps exiting; giving up")
+            Task { @MainActor in self.onStop?() }
+            return
+        }
+        let delay = Double(attempt) * 2
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            lock.lock(); let stillWanted = wanted; lock.unlock()
+            if stillWanted { _ = launch() }
+        }
+    }
+
+    private func consume(_ data: Data) {
+        lock.lock()
+        buffer.append(data)
+        var lines: [Data] = []
+        while let newline = buffer.firstIndex(of: 0x0A) {
+            lines.append(buffer.subdata(in: buffer.startIndex..<newline))
+            buffer.removeSubrange(buffer.startIndex...newline)
+        }
+        if lines.count > 0 { failures = 0 }
+        lock.unlock()
+        for line in lines {
+            guard let plist = Data(base64Encoded: line),
+                  let object = try? PropertyListSerialization.propertyList(from: plist, format: nil) as? [String: Any]
+            else { continue }
+            let record = Record(info: object["info"] as? [String: Any] ?? [:],
+                                playing: (object["playing"] as? Bool) ?? false,
+                                pid: (object["pid"] as? Int) ?? 0)
+            Task { @MainActor in self.onRecord?(record) }
+        }
+    }
+
+    /// Sends a transport command through a short-lived helper process.
+    func send(_ command: Command) {
+        guard let script, let library else { return }
+        let process = Process()
+        process.executableURL = Self.interpreter
+        process.arguments = [script.path, library.path]
+        var env = ProcessInfo.processInfo.environment
+        env["GARAKUTA_NOW_PLAYING_MODE"] = "command"
+        env["GARAKUTA_NOW_PLAYING_COMMAND"] = String(command.rawValue)
+        process.environment = env
+        process.standardOutput = nil
+        process.standardError = nil
+        try? process.run()
     }
 }
 

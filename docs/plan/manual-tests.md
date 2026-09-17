@@ -13,7 +13,7 @@ Steps to verify by hand what cannot be checked automatically. Matches the code a
 3. Permissions. Turn on `Garakuta` under System Settings → Privacy & Security.
    - Accessibility: all menu bar (M) and window switcher (W) features.
    - Screen Recording (optional): M03 real-icon mode, W01 thumbnails.
-   - Automation (Music, Spotify): macOS asks the first time playback info is read (N03).
+   - Automation (Music, Spotify): only asked when the now-playing helper cannot run and the app falls back to Apple Events (N03).
    - The bundle is ad-hoc signed with a designated requirement based on the bundle identifier, so a grant survives rebuilds. If System Settings shows Garakuta switched on while the app still reports the permission missing, the grant belongs to a copy signed differently: use **Reset…** next to the permission (or `tccutil reset Accessibility com.d0lim.garakuta`) and grant again.
 4. Settings window: right-click the menu bar icon → Settings…. Logs:
    ```sh
@@ -74,7 +74,8 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 | N01-1 | Launch the app | The notch continues as a black panel. External displays show an island inside the menu bar (or under it, when chosen in Appearance). Opening and closing the island keeps its top edge fixed; nothing jumps. |
 | N01-2 | Click the notch | Opens expanded (shelf). Clicking again closes it. |
 | N02-1 | Reorder and toggle widgets in Settings › Notch | The expanded panel's page composition changes. |
-| N03-1 | Play in Music or Spotify | The panel goes compact with playback info on both sides. The Automation prompt appears once. |
+| N03-1 | Play something in any app that publishes to the system now-playing service (Music, a browser tab, a video player) | The panel goes compact with playback info on both sides; the expanded page shows title, artist, artwork, progress and the app name. Pause: the activity stays for five minutes, then goes away. |
+| N03-1b | Quit the app and check `pgrep -f nowplaying.pl` | The helper process exits with the app. |
 | N03-2 | Start the timer widget while playing | Primary and secondary activities show together. |
 | N03-3 | Connect or disconnect the power adapter | The battery activity shows for a few seconds. |
 | N04-1 | Hover the notch → opens after the delay, closes when leaving | The configured delays apply. |

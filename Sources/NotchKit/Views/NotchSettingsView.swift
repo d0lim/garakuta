@@ -156,7 +156,7 @@ public struct NotchSettingsView: View {
                 .onMove { from, to in module.settings.liveActivities.priorityOrder.move(fromOffsets: from, toOffset: to) }
             }
             .frame(minHeight: 110)
-            Text("Top of the list wins the primary slot. Now Playing polls Music and Spotify every 2 s and needs Automation permission.")
+            Text("Top of the list wins the primary slot. Now Playing follows whatever app the system reports as playing: music players, browsers, podcasts and video alike.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

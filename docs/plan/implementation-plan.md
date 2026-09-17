@@ -82,7 +82,7 @@ The panel is one borderless, non-activating `NSPanel` per `NSScreen`. Its level 
 | --- | --- |
 | N01 | Three-state machine: collapsed (notch size), compact (small info on both sides), expanded (shelf). Transitions use SwiftUI spring animations. |
 | N02 | A `Widget` protocol (id, minimum and maximum size, view), a widget registry and a layout editor. Layout is stored as JSON. |
-| N03 | A `LiveActivity` provider protocol (priority, compact view, expanded view). First providers: now playing, timer, battery and charging. One primary and one secondary activity show at once. **Since macOS 15.4 MediaRemote access requires an entitlement**, so direct calls fail. The design keeps a separate helper process that loads an adapter framework through a system-signed binary (`/usr/bin/perl`) and streams events over stdout; AppleScript polling of Music and Spotify is the fallback and the current implementation. |
+| N03 | A `LiveActivity` provider protocol (priority, compact view, expanded view). First providers: now playing, timer, battery and charging. One primary and one secondary activity show at once. **Since macOS 15.4 MediaRemote access requires an entitlement**, so direct calls fail. Now-playing information therefore comes from a helper: `Sources/NowPlayingBridge` is a small C library that the app loads into the system perl interpreter (`/usr/bin/perl`, an Apple-signed binary the service does answer); it streams base64-encoded property-list records over stdout and sends transport commands. AppleScript polling of Music and Spotify remains as the fallback when the helper cannot run. |
 | N04 | Hover is judged by an `NSTrackingArea` on the panel plus a global mouse monitor, with open and close delays exposed as settings. Drag uses `NSDraggingDestination` (first pass: open trigger only). Swipes page through content using `scrollWheel` event phases. |
 | N05 | Size (wide, compact, custom), position offsets, background color and corner radius, animation speed. Separate settings per display. |
 | N06 | On Space changes (`NSWorkspace.activeSpaceDidChangeNotification`) and app activation, `CGWindowList` decides whether the frontmost app's window fills the display. Mission Control is detected from Dock-owned windows changing size. Rules: hide, compact only, or always show in full screen. |
@@ -153,7 +153,7 @@ Dependencies are limited to `MenuBarKit`, `NotchKit`, `WindowSwitcherKit` → `G
 | 2 | M05 → M03 | Implemented, awaiting manual verification |
 | 3 | N01 → N05 → N04 | Implemented. Panel position, expand and collapse verified through the signal hooks |
 | 4 | N06 → N07 → N02 | Implemented, awaiting manual verification |
-| 5 | N03 → N08 | Implemented. N03 uses AppleScript polling (Music, Spotify); the MediaRemote adapter is a follow-up |
+| 5 | N03 → N08 | Implemented. N03 uses the perl-hosted helper with AppleScript polling (Music, Spotify) as fallback |
 | 6 | W01 → W02 | Implemented. Show and hide verified through the signal hooks; all 15 private symbols load |
 | 7 | Integration QA | [Manual test guide](manual-tests.md) written. Not run yet: needs the Accessibility grant and any other menu bar manager quit |
 

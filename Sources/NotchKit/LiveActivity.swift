@@ -59,7 +59,7 @@ final class NowPlayingActivity: LiveActivityProvider {
 
     init(service: NowPlayingService) { self.service = service }
 
-    var isActive: Bool { service.track != nil }
+    var isActive: Bool { service.isActive }
 
     func compactLeading() -> AnyView { AnyView(NowPlayingCompactArtwork(service: service)) }
     func compactTrailing() -> AnyView { AnyView(NowPlayingCompactBars(service: service)) }

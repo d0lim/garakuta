@@ -4,6 +4,29 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- Now Playing follows whatever app the system reports as playing (browsers, podcast and video players included), with
+  artwork and live progress. A small helper is loaded into the system perl interpreter for this; the Music and
+  Spotify Apple Events polling remains as a fallback.
+- Menu Bar settings and the setup assistant show an animated guide to arranging icons with ⌘-drag.
+
+### Changed
+
+- The menu bar item is a chevron that points at the hidden items and flips when they are shown; the section
+  boundaries are thin dividers.
+- Menu Bar settings no longer list every icon with a section picker; group members are chosen from a menu on the
+  group row. Automatic arrangement hides the leftmost visible icon first.
+- The window switcher lays tiles out in as many columns as fit the screen instead of a single column.
+- A paused now-playing item keeps its activity for five minutes, then steps aside.
+
+### Fixed
+
+- The island on displays without a notch no longer jumps when opening or closing; its top edge stays put.
+- A two-finger swipe on the expanded panel turns exactly one page.
+- Starting the timer while the panel is open keeps the timer widget on screen instead of jumping to the new
+  activity page.
+
 ## [0.2.0] - 2026-09-17
 
 ### Added

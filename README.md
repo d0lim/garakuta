@@ -12,7 +12,7 @@ A menu bar organizer, a notch panel and a window switcher for macOS in one small
 
 **Menu bar** — hide icons behind a separator, keep an always-hidden section, reveal them by hover, click, scroll or hotkey, and browse hidden icons in a bar below the menu bar (also under the notch). Icons can be auto-hidden when the menu bar runs out of room, grouped, or spaced out. Works on macOS 26, where every status item is hosted by Control Center and has to be discovered through Accessibility.
 
-**Notch panel** — an island-style panel on every display: music controls (Music, Spotify), a timer, battery, and a shelf you can drop files on. Hover, click, swipe and drag gestures, per-display appearance, full-screen and Mission Control rules, and it stays out of screenshots and screen sharing.
+**Notch panel** — an island-style panel on every display: now-playing controls for whatever app is playing (music players, browsers, podcasts, video), a timer, battery, and a shelf you can drop files on. Hover, click, swipe and drag gestures, per-display appearance, full-screen and Mission Control rules, and it stays out of screenshots and screen sharing.
 
 **Window switcher** — hold ⌥⇥ to see every window with live thumbnails, including minimized windows and windows on other Spaces. Type to filter. Per-app rules, a titles-only mode and a choice of which display it opens on.
 
@@ -48,7 +48,7 @@ Then grant Accessibility (and, if you want icon captures and thumbnails, Screen 
 | --- | --- | --- |
 | Accessibility | Listing and moving other apps' menu bar icons, clicking them from the hidden-items bar, minimized windows, releasing ⌥ to select | Sections still hide and reveal; you ⌘-drag icons yourself; the switcher cycles with repeated ⌥⇥ and selects with Return |
 | Screen Recording | Real icon images and window thumbnails | App icons and titles |
-| Automation (Music, Spotify) | Now-playing info in the notch | No music activity |
+| Automation (Music, Spotify) | Only the fallback path for now-playing info, used when the bundled helper cannot run | Music and Spotify still show through the helper |
 
 ## Project layout
 
@@ -59,6 +59,7 @@ Sources/MenuBarKit         M01–M05
 Sources/NotchKit           N01–N08
 Sources/WindowSwitcherKit  W01–W02
 Sources/PrivateAPIs        dlsym loaders for SkyLight / HIServices private symbols (C)
+Sources/NowPlayingBridge   now-playing helper loaded into the system perl interpreter (C)
 docs/plan                  feature list, implementation plan, manual test guide
 ```
 
