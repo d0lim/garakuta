@@ -20,16 +20,18 @@ enum BrowserTabTitles {
         if chromeFamily.contains(bundleIdentifier) { titleProperty = "title" }
         else if safariFamily.contains(bundleIdentifier) { titleProperty = "name" }
         else { return nil }
+        // The separator is bound outside the tell block: inside it, "tab" would name the browser's tab class.
         return """
+        set sep to character id 9
+        set out to ""
         tell application id "\(bundleIdentifier)"
-            set out to ""
             repeat with w in windows
                 repeat with t in tabs of w
-                    set out to out & (URL of t) & tab & (\(titleProperty) of t) & linefeed
+                    set out to out & (URL of t) & sep & (\(titleProperty) of t) & linefeed
                 end repeat
             end repeat
-            return out
         end tell
+        return out
         """
     }
 
