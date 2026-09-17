@@ -1,6 +1,7 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
+@preconcurrency import ScreenCaptureKit
 
 /// TCC permissions the selected features depend on. Requested only when a feature that needs them is enabled.
 public enum Permission: String, CaseIterable, Sendable {
@@ -10,8 +11,25 @@ public enum Permission: String, CaseIterable, Sendable {
     public var isGranted: Bool {
         switch self {
         case .accessibility: AXIsProcessTrusted()
-        case .screenRecording: CGPreflightScreenCaptureAccess()
+        case .screenRecording: CGPreflightScreenCaptureAccess() || Self.screenRecordingProbeSucceeded
         }
+    }
+
+    /// The preflight check does not notice a Screen Recording grant made while the app is running; asking the
+    /// capture framework for its window list does. Remembered once it succeeds.
+    nonisolated(unsafe) private static var screenRecordingProbeSucceeded = false
+    nonisolated(unsafe) private static var screenRecordingProbeInFlight = false
+
+    /// Asks the capture framework whether it will serve us. Cheap enough to call from a settings poll; it does
+    /// nothing while a previous probe is still running or once the permission is known to be granted.
+    public static func probeScreenRecording() async -> Bool {
+        if CGPreflightScreenCaptureAccess() || screenRecordingProbeSucceeded { return true }
+        guard !screenRecordingProbeInFlight else { return false }
+        screenRecordingProbeInFlight = true
+        defer { screenRecordingProbeInFlight = false }
+        let granted = (try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)) != nil
+        if granted { screenRecordingProbeSucceeded = true }
+        return granted
     }
 
     /// Forgets the system's record of this app for the permission so it can be granted afresh.

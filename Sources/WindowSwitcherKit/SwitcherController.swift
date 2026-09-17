@@ -24,6 +24,11 @@ final class SwitcherController {
     private var pendingTriggerFlags: NSEvent.ModifierFlags = []
     private var pendingScreen: NSScreen?
     private var captureInFlight: Set<CGWindowID> = []
+    /// Windows whose last capture came back empty (typically on another Space); retried only occasionally.
+    private var captureFailedAt: [CGWindowID: Date] = [:]
+    private var thumbnailCapturedAt: [CGWindowID: Date] = [:]
+    private static let maxCapturesInFlight = 8
+    private static let failedCaptureRetry: TimeInterval = 3
 
     var isOpen: Bool { state.isVisible || showTimer != nil }
 
@@ -73,6 +78,8 @@ final class SwitcherController {
         panel?.orderOut(nil)
         state.thumbnails.removeAll()
         captureInFlight.removeAll()
+        captureFailedAt.removeAll()
+        thumbnailCapturedAt.removeAll()
     }
 
     func activateSelection() {
@@ -273,18 +280,35 @@ final class SwitcherController {
         }
     }
 
+    /// Captures a bounded number of windows at a time, in list order, so the tiles the user sees first fill first.
+    /// Windows that came back empty (on another Space, for instance) keep their icon and are retried slowly.
     private func refreshThumbnails() {
         guard state.isVisible, state.thumbnailsEnabled else { return }
         let maxWidth = CGFloat(state.settings.thumbnailWidth) * 2
-        for window in state.filtered.prefix(40) where !window.isAppPlaceholder && !captureInFlight.contains(window.windowID) {
+        let now = Date()
+        // Tiles without a thumbnail yet come first, then the stalest ones, so a long list fills in evenly instead
+        // of the top rows hogging every refresh.
+        // Windows on another Space cannot be captured (the framework hands back a blank frame); their tile keeps the icon.
+        let candidates = state.filtered.prefix(40)
+            .filter { !$0.isAppPlaceholder && ($0.isOnCurrentSpace || $0.isMinimized) && !captureInFlight.contains($0.windowID) }
+            .sorted { (thumbnailCapturedAt[$0.windowID] ?? .distantPast) < (thumbnailCapturedAt[$1.windowID] ?? .distantPast) }
+        for window in candidates {
+            guard captureInFlight.count < Self.maxCapturesInFlight else { break }
             let id = window.windowID
+            if let failed = captureFailedAt[id], now.timeIntervalSince(failed) < Self.failedCaptureRetry { continue }
             captureInFlight.insert(id)
             Task { [weak self] in
                 let image = await WindowCapture.shared.image(ofWindow: id, maxWidth: maxWidth)
                 await MainActor.run {
                     guard let self else { return }
                     self.captureInFlight.remove(id)
-                    if let image, self.state.isVisible { self.state.thumbnails[id] = image }
+                    if let image {
+                        self.captureFailedAt[id] = nil
+                        self.thumbnailCapturedAt[id] = Date()
+                        if self.state.isVisible { self.state.thumbnails[id] = image }
+                    } else {
+                        self.captureFailedAt[id] = Date()
+                    }
                 }
             }
         }

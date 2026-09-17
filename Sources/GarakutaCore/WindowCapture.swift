@@ -36,7 +36,30 @@ public actor WindowCapture {
         config.height = Int(height)
         config.showsCursor = false
         config.ignoreShadowsSingleWindow = true
-        return try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) else { return nil }
+        // Windows on another Space come back as a flat grey rectangle; callers would rather show an icon than that.
+        return Self.isFlat(image) ? nil : image
+    }
+
+    /// True when the image is (nearly) a single colour, sampled on a coarse grid.
+    static func isFlat(_ image: CGImage) -> Bool {
+        let side = 8
+        guard let context = CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+        context.interpolationQuality = .low
+        context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+        guard let data = context.data else { return false }
+        let pixels = data.bindMemory(to: UInt8.self, capacity: side * side * 4)
+        var minimum = [UInt8](repeating: 255, count: 3), maximum = [UInt8](repeating: 0, count: 3)
+        for i in 0..<(side * side) {
+            for c in 0..<3 {
+                let v = pixels[i * 4 + c]
+                minimum[c] = min(minimum[c], v)
+                maximum[c] = max(maximum[c], v)
+            }
+        }
+        return (0..<3).allSatisfy { Int(maximum[$0]) - Int(minimum[$0]) < 16 }
     }
 
     public func invalidate() {
