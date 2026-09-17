@@ -193,6 +193,10 @@ final class OnboardingModel: ObservableObject {
     }
 
     func requestAccessibility() { Permission.accessibility.request() }
+    func resetAccessibility() {
+        Permission.accessibility.reset()
+        Permission.accessibility.request()
+    }
     func requestScreenRecording() { Permission.screenRecording.request() }
 
     func openPrivacyPane(_ anchor: String) {

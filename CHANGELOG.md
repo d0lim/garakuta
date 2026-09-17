@@ -7,6 +7,17 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 ### Added
 
 - App icon, and a matching template glyph for the menu bar item and the onboarding window.
+- "Reset…" next to each permission, for grants that belong to an earlier copy of the app.
+
+### Changed
+
+- Settings window pages are switched from an icon strip along the top instead of a segmented control.
+- The setup assistant window no longer shows a title bar.
+
+### Fixed
+
+- Accessibility and Screen Recording grants stayed attached to one exact build: the app bundle is now signed with a
+  designated requirement based on its bundle identifier, so a grant survives rebuilds and updates.
 
 ## [0.1.0] - 2026-09-17
 

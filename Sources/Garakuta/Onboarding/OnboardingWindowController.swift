@@ -16,7 +16,13 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             let hosting = NSHostingController(rootView: OnboardingView(model: model))
             let window = NSWindow(contentViewController: hosting)
             window.title = "Set up Garakuta"
-            window.styleMask = [.titled, .closable]
+            // Only the close button remains; the sidebar leaves room for it. The title lives in the sidebar.
+            window.styleMask = [.titled, .closable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.isMovableByWindowBackground = true
+            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            window.standardWindowButton(.zoomButton)?.isHidden = true
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

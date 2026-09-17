@@ -28,7 +28,7 @@ struct OnboardingView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Garakuta").font(.title2.bold()).padding(.bottom, 12)
+            Text("Garakuta").font(.title2.bold()).padding(.top, 24).padding(.bottom, 12)
             ForEach(model.visibleSteps) { step in
                 HStack(spacing: 10) {
                     Image(systemName: step.systemImage).frame(width: 18)
@@ -183,6 +183,11 @@ struct OnboardingView: View {
                 }
                 Text("The checkmark appears within a second after you turn Garakuta on in System Settings.")
                     .font(.caption).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("Already switched on but still not detected? The grant belongs to an earlier copy of Garakuta. Reset it, then grant again.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Button("Reset…") { model.resetAccessibility() }.controlSize(.small)
+                }
             }
         }
     }

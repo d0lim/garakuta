@@ -20,14 +20,26 @@ struct GarakutaApp: App {
 
 struct SettingsRootView: View {
     @ObservedObject var model: AppModel
+    @State private var tab: SettingsTab = .initial
 
     var body: some View {
-        TabView {
-            GeneralSettingsView(model: model)
-                .tabItem { Label("General", systemImage: "gearshape") }
-            ModuleSettingsTabs(model: model)
+        VStack(spacing: 0) {
+            SettingsTabStrip(selection: $tab)
+            Divider()
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 620, minHeight: 480)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch tab {
+        case .general: GeneralSettingsView(model: model)
+        case .menuBar: model.menuBar.settingsView()
+        case .notch: model.notch.settingsView
+        case .switcher: model.switcher.settingsView
+        }
     }
 }
 

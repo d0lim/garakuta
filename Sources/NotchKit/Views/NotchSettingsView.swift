@@ -24,7 +24,6 @@ public struct NotchSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 460, minHeight: 520)
         .onDisappear { module.saveSettings() }
     }
 

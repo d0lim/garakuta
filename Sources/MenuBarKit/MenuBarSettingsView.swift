@@ -29,7 +29,6 @@ public struct MenuBarSettingsView: View {
             groupsSection
         }
         .formStyle(.grouped)
-        .frame(minWidth: 520, minHeight: 560)
         .onChange(of: settings) { _, new in module.settings = new }
         .onAppear { refresh() }
     }

@@ -83,6 +83,12 @@ struct GeneralSettingsView: View {
                     permission.request()
                     model.refreshPermissions()
                 }
+                Button("Reset…") {
+                    permission.reset()
+                    permission.request()
+                    model.refreshPermissions()
+                }
+                .help("Use this when System Settings shows Garakuta switched on but the permission is still reported missing: the grant belongs to an earlier copy of the app.")
             }
         }
     }

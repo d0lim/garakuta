@@ -32,5 +32,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-codesign --force --sign - "$APP"
+# Ad-hoc signature with a designated requirement based on the bundle identifier instead of the default code hash,
+# so Accessibility and Screen Recording grants survive rebuilds and updates.
+codesign --force --sign - --identifier com.d0lim.garakuta \
+  --requirements '=designated => identifier "com.d0lim.garakuta"' "$APP"
 echo "built $APP ($VERSION, build $BUILD_NUMBER)"

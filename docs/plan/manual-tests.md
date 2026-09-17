@@ -14,7 +14,7 @@ Steps to verify by hand what cannot be checked automatically. Matches the code a
    - Accessibility: all menu bar (M) and window switcher (W) features.
    - Screen Recording (optional): M03 real-icon mode, W01 thumbnails.
    - Automation (Music, Spotify): macOS asks the first time playback info is read (N03).
-   - The bundle is ad-hoc signed, so **rebuilding can drop the Accessibility grant.** Remove and re-add the app in the list. Signing with Xcode and a developer certificate fixes this.
+   - The bundle is ad-hoc signed with a designated requirement based on the bundle identifier, so a grant survives rebuilds. If System Settings shows Garakuta switched on while the app still reports the permission missing, the grant belongs to a copy signed differently: use **Reset…** next to the permission (or `tccutil reset Accessibility com.d0lim.garakuta`) and grant again.
 4. Settings window: right-click the menu bar icon → Settings…. Logs:
    ```sh
    log stream --predicate 'process == "Garakuta"' --style compact
