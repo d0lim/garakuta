@@ -1,3 +1,5 @@
+<p align="center"><img src="Resources/Logo.png" alt="Garakuta" width="160"></p>
+
 # Garakuta
 
 [![CI](https://github.com/d0lim/garakuta/actions/workflows/ci.yml/badge.svg)](https://github.com/d0lim/garakuta/actions/workflows/ci.yml)

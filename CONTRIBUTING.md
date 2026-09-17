@@ -16,6 +16,7 @@ Thanks for taking the time. This is a small project, so the process is light.
 swift build              # build the package
 ./scripts/bundle.sh      # produce build/Garakuta.app with an ad-hoc signature
 swift test               # unit tests (Xcode required)
+swift scripts/make-icon.swift  # regenerate Resources/AppIcon.icns after changing Resources/Logo.png
 ```
 
 Grant Accessibility (and optionally Screen Recording) to `build/Garakuta.app` in System Settings to exercise the menu bar and switcher features. Quit any other menu bar manager or window switcher while testing; they fight over the same menu bar and shortcut.

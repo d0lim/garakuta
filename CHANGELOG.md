@@ -4,6 +4,10 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- App icon, and a matching template glyph for the menu bar item and the onboarding window.
+
 ## [0.1.0] - 2026-09-17
 
 First public release.

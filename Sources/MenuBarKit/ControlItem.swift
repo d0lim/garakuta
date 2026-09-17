@@ -58,7 +58,7 @@ final class ControlItem {
 
     var separatorImage: NSImage? {
         switch kind {
-        case .appIcon: NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Garakuta")
+        case .appIcon: AppGlyph.image(accessibilityDescription: "Garakuta")
         case .hiddenSeparator: NSImage(systemSymbolName: "chevron.compact.left", accessibilityDescription: "Hidden items")
         case .alwaysHiddenSeparator: NSImage(systemSymbolName: "chevron.left.2", accessibilityDescription: "Always hidden items")
         }

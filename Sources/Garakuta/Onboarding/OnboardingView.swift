@@ -91,7 +91,12 @@ struct OnboardingView: View {
 
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 18) {
-            header("Welcome to Garakuta", "A menu bar organizer, a notch panel and a window switcher. Pick what you want to start with; you can change it any time in Settings.")
+            HStack(alignment: .top, spacing: 16) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 72, height: 72)
+                header("Welcome to Garakuta", "A menu bar organizer, a notch panel and a window switcher. Pick what you want to start with; you can change it any time in Settings.")
+            }
             VStack(spacing: 10) {
                 ForEach(OnboardingModel.Bundle.allCases) { bundle in
                     Button { model.apply(bundle: bundle) } label: {
