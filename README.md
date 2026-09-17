@@ -16,11 +16,19 @@ A menu bar organizer, a notch panel and a window switcher for macOS in one small
 
 A first-launch setup assistant walks through feature bundles, conflicting utilities, permissions and a live tour of each module.
 
+## Install
+
+```sh
+brew install --cask d0lim/tap/garakuta
+```
+
+Then open Garakuta from Applications. The setup assistant walks through permissions on first launch. The app is ad-hoc signed for now; the cask removes the quarantine flag after install so Gatekeeper does not block it. Release archives are also on the [releases page](https://github.com/d0lim/garakuta/releases).
+
 ## Status
 
-All 15 planned features are implemented and the app builds and runs. Interaction paths that need Accessibility permission have been exercised only by the [manual test guide](docs/plan/manual-tests.md); expect rough edges. There are no releases yet, so build it yourself.
+All 15 planned features are implemented. Interaction paths that need Accessibility permission are verified with the [manual test guide](docs/plan/manual-tests.md), not by automated tests, so expect rough edges. See the [changelog](CHANGELOG.md) for what each release contains.
 
-## Build
+## Build from source
 
 Requires macOS 15 or later. Xcode 16 is recommended; Command Line Tools alone can build the app but not run the tests.
 

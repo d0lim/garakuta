@@ -4,6 +4,10 @@
 set -eu
 cd "$(dirname "$0")/.."
 CONFIG="${1:-debug}"
+# Version comes from $VERSION, else the nearest v* tag, else 0.0.0 for local builds.
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null | sed 's/^v//' || true)}"
+VERSION="${VERSION:-0.0.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 swift build -c "$CONFIG"
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/Garakuta"
 APP="build/Garakuta.app"
@@ -18,7 +22,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIdentifier</key><string>com.d0lim.garakuta</string>
   <key>CFBundleName</key><string>Garakuta</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
   <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>LSUIElement</key><true/>
   <key>NSAppleEventsUsageDescription</key><string>Garakuta reads what Music or Spotify is playing to show it in the notch panel.</string>
@@ -26,4 +31,4 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 codesign --force --sign - "$APP"
-echo "built $APP"
+echo "built $APP ($VERSION, build $BUILD_NUMBER)"

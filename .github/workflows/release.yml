@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+
+jobs:
+  release:
+    name: Build, package and publish
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+      - name: Version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Test
+        run: swift test 2>&1 | tail -20
+      - name: Build release bundle
+        run: ./scripts/bundle.sh release
+      - name: Package
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent build/Garakuta.app "build/Garakuta-${VERSION}.zip"
+          (cd build && shasum -a 256 "Garakuta-${VERSION}.zip" > "Garakuta-${VERSION}.zip.sha256")
+          cat "build/Garakuta-${VERSION}.zip.sha256"
+      - name: Release notes from CHANGELOG
+        run: |
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > build/notes.md
+          if [ ! -s build/notes.md ]; then echo "Release ${VERSION}." > build/notes.md; fi
+          cat build/notes.md
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Garakuta ${VERSION}" \
+            --notes-file build/notes.md \
+            "build/Garakuta-${VERSION}.zip" \
+            "build/Garakuta-${VERSION}.zip.sha256"
