@@ -157,36 +157,138 @@ struct ShelfWidgetView: View {
     let store: ShelfStore
 
     var body: some View {
-        WidgetCard(title: "Shelf", systemImage: "tray.full") {
+        WidgetCard(title: store.items.isEmpty ? "Shelf" : "Shelf · \(store.items.count)", systemImage: "tray.full") {
             if store.items.isEmpty {
                 VStack(spacing: 6) {
                     Image(systemName: "arrow.down.doc").font(.title2)
-                    Text("Drop files on the notch").font(.system(size: 12))
+                    Text("Drop files on the notch to keep them here").font(.system(size: 12))
+                    Text("They stay until you remove them, even across relaunches.").font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
                 }
                 .foregroundStyle(.white.opacity(0.6))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(store.items, id: \.self) { url in
-                            VStack(spacing: 4) {
-                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                    .resizable().frame(width: 40, height: 40)
-                                Text(url.lastPathComponent)
-                                    .font(.system(size: 10)).lineLimit(1).frame(width: 64)
-                            }
-                            .foregroundStyle(.white)
-                            .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
-                            .contextMenu {
-                                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                                Button("Remove") { store.remove(url) }
+                HStack(spacing: 8) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(store.items, id: \.self) { url in
+                                shelfItem(url)
                             }
                         }
-                        Button { store.clear() } label: { Image(systemName: "xmark.circle") }
-                            .buttonStyle(.plain).foregroundStyle(.white.opacity(0.6))
+                        .padding(.vertical, 2)
                     }
+                    Divider().overlay(.white.opacity(0.2)).frame(height: 56)
+                    shelfActions
                 }
             }
+        }
+    }
+
+    private func shelfItem(_ url: URL) -> some View {
+        VStack(spacing: 4) {
+            Image(nsImage: store.thumbnail(for: url))
+                .resizable().aspectRatio(contentMode: .fit)
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            Text(url.lastPathComponent)
+                .font(.system(size: 10)).lineLimit(1).truncationMode(.middle).frame(width: 68)
+        }
+        .foregroundStyle(.white)
+        .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
+        .onTapGesture(count: 2) { store.open(url) }
+        .contextMenu {
+            Button("Open") { store.open(url) }
+            Button("Reveal in Finder") { store.reveal([url]) }
+            ShareLink(item: url) { Text("Share…") }
+            Divider()
+            Button("Compress") { store.compress([url]) }
+            Button("Copy") { store.copyPaths([url]) }
+            Divider()
+            Button("Remove from Shelf") { store.remove(url) }
+        }
+        .help(url.path)
+    }
+
+    /// Whole-shelf actions: drag everything out at once, share, compress, clear.
+    private var shelfActions: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MultiFileDragView(urls: store.items) {
+                Label("Drag all", systemImage: "square.stack.3d.up")
+            }
+            ShareLink(items: store.items) { Label("Share…", systemImage: "square.and.arrow.up") }
+            Menu {
+                Button("Reveal in Finder") { store.reveal(store.items) }
+                Button("Compress into one archive") { store.compress(store.items) }
+                Button("Copy") { store.copyPaths(store.items) }
+                Divider()
+                Button("Clear Shelf") { store.clear() }
+            } label: {
+                Label("More", systemImage: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .font(.system(size: 11))
+        .buttonStyle(.plain)
+        .foregroundStyle(.white.opacity(0.85))
+        .frame(width: 96, alignment: .leading)
+    }
+}
+
+/// A label that starts a drag of several files at once. SwiftUI's `onDrag` hands over a single item, so the
+/// drag session is started from AppKit.
+struct MultiFileDragView<Label: View>: NSViewRepresentable {
+    let urls: [URL]
+    @ViewBuilder let label: Label
+
+    func makeNSView(context: Context) -> DragSourceView {
+        let view = DragSourceView()
+        view.hosting = NSHostingView(rootView: label)
+        view.hosting?.translatesAutoresizingMaskIntoConstraints = false
+        if let hosting = view.hosting {
+            view.addSubview(hosting)
+            NSLayoutConstraint.activate([
+                hosting.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                hosting.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                hosting.topAnchor.constraint(equalTo: view.topAnchor),
+                hosting.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            ])
+        }
+        view.urls = urls
+        return view
+    }
+
+    func updateNSView(_ nsView: DragSourceView, context: Context) {
+        nsView.urls = urls
+        nsView.hosting?.rootView = label
+    }
+
+    final class DragSourceView: NSView, NSDraggingSource {
+        var urls: [URL] = []
+        var hosting: NSHostingView<Label>?
+        private var mouseDownAt: CGPoint?
+
+        override var intrinsicContentSize: NSSize { hosting?.intrinsicContentSize ?? super.intrinsicContentSize }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { bounds.contains(point) ? self : nil }
+
+        override func mouseDown(with event: NSEvent) { mouseDownAt = event.locationInWindow }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let start = mouseDownAt, hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) > 4, !urls.isEmpty else { return }
+            mouseDownAt = nil
+            let items = urls.enumerated().map { index, url -> NSDraggingItem in
+                let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                let origin = convert(event.locationInWindow, from: nil)
+                // Fan the icons out a little so the stack reads as several files.
+                item.setDraggingFrame(NSRect(x: origin.x - 24 + CGFloat(index) * 6, y: origin.y - 24 - CGFloat(index) * 6, width: 48, height: 48), contents: icon)
+                return item
+            }
+            beginDraggingSession(with: items, event: event, source: self)
+        }
+
+        func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+            [.copy, .generic]
         }
     }
 }

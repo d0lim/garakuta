@@ -18,6 +18,17 @@ struct NotchContentView: View {
                     if model.isDragTarget {
                         shape.strokeBorder(.white.opacity(0.7), lineWidth: 2)
                             .frame(width: size.width, height: size.height)
+                            .overlay(alignment: .bottom) {
+                                if model.state == .expanded {
+                                    Label("Drop to keep on the Shelf", systemImage: "tray.and.arrow.down.fill")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 12).padding(.vertical, 6)
+                                        .background(.white.opacity(0.18), in: Capsule())
+                                        .padding(.bottom, 26)
+                                        .allowsHitTesting(false)
+                                }
+                            }
                     }
                 }
                 .contentShape(shape)

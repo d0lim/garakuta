@@ -10,6 +10,9 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
   artwork and live progress. A small helper is loaded into the system perl interpreter for this; the Music and
   Spotify Apple Events polling remains as a fallback.
 - Menu Bar settings and the setup assistant show an animated guide to arranging icons with ⌘-drag.
+- The shelf keeps its files across relaunches, shows Quick Look previews, and offers Open, Reveal in Finder, Share
+  (including AirDrop), Compress, Copy and Remove per file, plus Drag all, Share and Compress for the whole shelf.
+  A hint appears while a file is dragged over the panel.
 
 ### Changed
 

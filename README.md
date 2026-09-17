@@ -12,7 +12,7 @@ A menu bar organizer, a notch panel and a window switcher for macOS in one small
 
 **Menu bar** — hide icons behind a separator, keep an always-hidden section, reveal them by hover, click, scroll or hotkey, and browse hidden icons in a bar below the menu bar (also under the notch). Icons can be auto-hidden when the menu bar runs out of room, grouped, or spaced out. Works on macOS 26, where every status item is hosted by Control Center and has to be discovered through Accessibility.
 
-**Notch panel** — an island-style panel on every display: now-playing controls for whatever app is playing (music players, browsers, podcasts, video), a timer, battery, and a shelf you can drop files on. Hover, click, swipe and drag gestures, per-display appearance, full-screen and Mission Control rules, and it stays out of screenshots and screen sharing.
+**Notch panel** — an island-style panel on every display: now-playing controls for whatever app is playing (music players, browsers, podcasts, video), a timer, battery, and a shelf you can drop files on and share, compress or drag out again later. Hover, click, swipe and drag gestures, per-display appearance, full-screen and Mission Control rules, and it stays out of screenshots and screen sharing.
 
 **Window switcher** — hold ⌥⇥ to see every window with live thumbnails, including minimized windows and windows on other Spaces. Type to filter. Per-app rules, a titles-only mode and a choice of which display it opens on.
 

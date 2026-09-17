@@ -81,7 +81,9 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 | N04-1 | Hover the notch → opens after the delay, closes when leaving | The configured delays apply. |
 | N04-2 | Two-finger horizontal swipe while expanded | One page per swipe, however far the fingers travel; the next swipe turns the next page. Vertical swipe opens and closes. |
 | N04-4 | Start the timer while the panel is open on a widget page | The timer widget stays on screen (the activity page is inserted before it without changing what is visible). |
-| N04-3 | Drag a file onto the collapsed notch | The panel opens and the file is added to the shelf. It can be dragged out of the shelf. |
+| N04-3 | Drag a file onto the collapsed notch | The panel opens with a "Drop to keep on the Shelf" hint; the file is added to the shelf with a Quick Look preview. It can be dragged out again. |
+| N04-5 | Right-click a shelf item / use Drag all, Share…, More | Open, Reveal in Finder, Share (incl. AirDrop), Compress, Copy, Remove work; Drag all drags every file at once; Compress into one archive adds the zip to the shelf. |
+| N04-6 | Quit and relaunch with files on the shelf | The files are still there; files deleted in the meantime are gone. |
 | N05-1 | Change size preset, corner radius, color, animation speed, offsets | Applied immediately. Per-display overrides work. |
 | N06-1 | Enter a full-screen app | Behaves per rule (hide, compact only, always). The rule also applies in Mission Control. |
 | N07-1 | Screenshot (⇧⌘3) or screen share | The panel does not appear (on by default). Turning it off makes it appear. |
