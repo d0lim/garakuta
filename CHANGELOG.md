@@ -4,6 +4,8 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-17
+
 ### Added
 
 - App icon, and a matching template glyph for the menu bar item and the onboarding window.
@@ -39,5 +41,6 @@ First public release.
 - Now-playing information comes from Music and Spotify through Apple Events only.
 - Intel Macs are untested.
 
-[Unreleased]: https://github.com/d0lim/garakuta/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/d0lim/garakuta/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/d0lim/garakuta/releases/tag/v0.2.0
 [0.1.0]: https://github.com/d0lim/garakuta/releases/tag/v0.1.0
