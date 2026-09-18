@@ -36,11 +36,7 @@ Everything here is configurable in Settings; these are the defaults.
 brew install --cask d0lim/tap/garakuta
 ```
 
-Then open Garakuta from Applications. The setup assistant walks through permissions on first launch. The app is ad-hoc signed for now; the cask removes the quarantine flag after install so Gatekeeper does not block it. Release archives are also on the [releases page](https://github.com/d0lim/garakuta/releases).
-
-## Status
-
-The 15 features of the original scope are implemented, and releases since have gone on refining them: a switcher that follows use rather than stacking order, now-playing that reads the system's media service directly, and bars that move with the music. Unit tests cover the pure logic; every interaction path that needs Accessibility permission is verified by hand with the [manual test guide](docs/plan/manual-tests.md), so expect rough edges. See the [changelog](CHANGELOG.md) for what each release contains.
+Then open Garakuta from Applications. The setup assistant walks through permissions on first launch. The app is ad-hoc signed for now; the cask removes the quarantine flag after install so Gatekeeper does not block it. Release archives are on the [releases page](https://github.com/d0lim/garakuta/releases), and the [changelog](CHANGELOG.md) says what each one contains.
 
 ## Build from source
 
@@ -77,7 +73,7 @@ Tests                      unit tests for the pure logic (search ranking, tile l
 docs/plan                  feature list, implementation plan, manual test guide
 ```
 
-Feature IDs refer to the [feature list](docs/plan/features.md); the architecture and the macOS 26 constraints are in the [implementation plan](docs/plan/implementation-plan.md).
+Feature IDs refer to the [feature list](docs/plan/features.md); the architecture and the macOS 26 constraints are in the [implementation plan](docs/plan/implementation-plan.md). Unit tests cover the pure logic, and everything that needs Accessibility permission is checked by hand against the [manual test guide](docs/plan/manual-tests.md).
 
 ## Contributing
 
