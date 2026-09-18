@@ -41,8 +41,9 @@ public final class AudioLevelService {
     /// Upper edge of each band in hertz; the first band starts at 40 Hz. Roughly logarithmic, so each bar covers
     /// a range that reads as a distinct part of the music rather than an equal slice of the spectrum.
     private static let bandEdges: [Float] = [160, 400, 1000, 2500, 8000]
-    /// New levels a dozen times a second. The bars glide between them, so a higher rate would only cost redraws:
-    /// a per-frame rebuild of the island turned out to be by far the most expensive part of this.
+    /// New levels a dozen times a second. The layers interpolate between them, so the eye sees a smooth bar
+    /// either way and a higher rate buys nothing; the rate turned out not to drive the cost at all, which sits
+    /// in the tap itself.
     private static let refreshInterval: TimeInterval = 1.0 / 12
 
     public init() {}
