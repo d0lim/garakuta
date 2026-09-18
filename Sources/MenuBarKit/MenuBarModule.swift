@@ -69,31 +69,40 @@ public final class MenuBarModule: NSObject, FeatureModule {
 
     public func start() throws {
         guard !isRunning else { return }
-        let alwaysHidden = ControlItem(kind: .alwaysHiddenSeparator)
-        let hidden = ControlItem(kind: .hiddenSeparator)
         let chevronItem = ControlItem(kind: .chevron)
-        alwaysHiddenSeparator = alwaysHidden
-        hiddenSeparator = hidden
         chevron = chevronItem
-
         chevronItem.statusItem.button?.target = self
         chevronItem.statusItem.button?.action = #selector(chevronClicked(_:))
         chevronItem.statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        for separator in [hidden, alwaysHidden] {
-            separator.statusItem.button?.target = self
-            separator.statusItem.button?.action = #selector(separatorClicked(_:))
+
+        if MenuBarHost.sectionsCanCollapse {
+            let alwaysHidden = ControlItem(kind: .alwaysHiddenSeparator)
+            let hidden = ControlItem(kind: .hiddenSeparator)
+            alwaysHiddenSeparator = alwaysHidden
+            hiddenSeparator = hidden
+            for separator in [hidden, alwaysHidden] {
+                separator.statusItem.button?.target = self
+                separator.statusItem.button?.action = #selector(separatorClicked(_:))
+            }
+        } else {
+            // Nothing can be tucked away: the system's overflow button owns that. The item stays as the app's
+            // menu and as the place group and bar clicks anchor to.
+            isHiddenSectionCollapsed = false
+            isAlwaysHiddenSectionCollapsed = false
         }
         applyCollapseState()
 
         for spacer in settings.spacers { spacerItems[spacer.id] = SpacerItem(spacer: spacer) }
         for group in settings.groups { addGroupItem(group) }
 
-        let reveal = RevealController(settings: settings)
-        reveal.setRevealed = { [weak self] revealed in self?.setHiddenSectionCollapsed(!revealed) }
-        reveal.isRevealed = { [weak self] in self?.isHiddenSectionCollapsed == false }
-        reveal.extraKeepAliveFrames = { [weak self] in self?.bar.frame.map { [$0] } ?? [] }
-        reveal.start()
-        self.reveal = reveal
+        if MenuBarHost.sectionsCanCollapse {
+            let reveal = RevealController(settings: settings)
+            reveal.setRevealed = { [weak self] revealed in self?.setHiddenSectionCollapsed(!revealed) }
+            reveal.isRevealed = { [weak self] in self?.isHiddenSectionCollapsed == false }
+            reveal.extraKeepAliveFrames = { [weak self] in self?.bar.frame.map { [$0] } ?? [] }
+            reveal.start()
+            self.reveal = reveal
+        }
 
         bar.onPress = { [weak self] item in self?.barPressed(item) }
         bar.onClose = { [weak self] in
@@ -101,7 +110,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
             EventBus.shared.publish(.hiddenItemsBarClosed(displayID: self.bar.displayID ?? 0))
         }
 
-        arranger = AutoArranger(module: self)
+        if MenuBarHost.sectionsCanCollapse { arranger = AutoArranger(module: self) }
 
         busSubscription = EventBus.shared.subscribe { [weak self] event in
             guard let self else { return }
@@ -121,8 +130,10 @@ public final class MenuBarModule: NSObject, FeatureModule {
         })
         MenuBarModule.active = self
 
-        scheduleEnforceAssignments(after: 3)
-        restartArrangeTimer()
+        if MenuBarHost.sectionsCanCollapse {
+            scheduleEnforceAssignments(after: 3)
+            restartArrangeTimer()
+        }
         isRunning = true
     }
 
@@ -208,6 +219,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
     // MARK: Section visibility
 
     public func setHiddenSectionCollapsed(_ collapsed: Bool) {
+        guard MenuBarHost.sectionsCanCollapse else { return }
         isHiddenSectionCollapsed = collapsed
         if collapsed {
             isAlwaysHiddenSectionCollapsed = true
@@ -217,6 +229,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
     }
 
     public func setAlwaysHiddenSectionCollapsed(_ collapsed: Bool) {
+        guard MenuBarHost.sectionsCanCollapse else { return }
         isAlwaysHiddenSectionCollapsed = collapsed
         if !collapsed { isHiddenSectionCollapsed = false }
         applyCollapseState()
@@ -237,7 +250,11 @@ public final class MenuBarModule: NSObject, FeatureModule {
     }
 
     private func applyCollapseState() {
-        chevron?.setChevron(pointingLeft: isHiddenSectionCollapsed)
+        if MenuBarHost.sectionsCanCollapse {
+            chevron?.setChevron(pointingLeft: isHiddenSectionCollapsed)
+        } else {
+            chevron?.setMenuGlyph()
+        }
         hiddenSeparator?.setCollapsed(isHiddenSectionCollapsed)
         alwaysHiddenSeparator?.setCollapsed(isAlwaysHiddenSectionCollapsed)
     }
@@ -287,7 +304,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
     /// Moves an item into a section by ⌘-dragging it next to the matching separator, then verifies the result.
     /// Both sections are expanded during the move and the previous collapse state is restored afterwards.
     public func move(_ item: MenuBarItem, to section: MenuBarSection) async throws {
-        guard isRunning else { throw MoveFailure.itemNotFound }
+        guard isRunning, MenuBarHost.sectionsCanCollapse else { throw MoveFailure.itemNotFound }
         while moveInProgress { try await Task.sleep(for: .milliseconds(100)) }
         guard isRunning else { throw MoveFailure.itemNotFound }
         moveInProgress = true
@@ -537,7 +554,7 @@ public final class MenuBarModule: NSObject, FeatureModule {
     // MARK: Actions
 
     @objc private func chevronClicked(_ sender: NSStatusBarButton) {
-        if NSApp.currentEvent?.type == .rightMouseUp {
+        if NSApp.currentEvent?.type == .rightMouseUp || !MenuBarHost.sectionsCanCollapse {
             showMenu(from: sender)
         } else if settings.secondaryBarEnabled, isHiddenSectionCollapsed {
             if bar.isOpen { closeHiddenItemsBar() } else { openHiddenItemsBar(displayID: sender.window?.screen.flatMap { MenuBarGeometry.displayID(of: $0) }) }
@@ -566,25 +583,26 @@ public final class MenuBarModule: NSObject, FeatureModule {
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
 
-        let hiddenToggle = NSMenuItem(
-            title: isHiddenSectionCollapsed ? "Show Hidden Items" : "Hide Hidden Items",
-            action: #selector(menuToggleHidden), keyEquivalent: ""
-        )
-        hiddenToggle.target = self
-        menu.addItem(hiddenToggle)
+        if MenuBarHost.sectionsCanCollapse {
+            let hiddenToggle = NSMenuItem(
+                title: isHiddenSectionCollapsed ? "Show Hidden Items" : "Hide Hidden Items",
+                action: #selector(menuToggleHidden), keyEquivalent: ""
+            )
+            hiddenToggle.target = self
+            menu.addItem(hiddenToggle)
 
-        let alwaysToggle = NSMenuItem(
-            title: isAlwaysHiddenSectionCollapsed ? "Show Always-Hidden Items" : "Hide Always-Hidden Items",
-            action: #selector(menuToggleAlwaysHidden), keyEquivalent: ""
-        )
-        alwaysToggle.target = self
-        menu.addItem(alwaysToggle)
+            let alwaysToggle = NSMenuItem(
+                title: isAlwaysHiddenSectionCollapsed ? "Show Always-Hidden Items" : "Hide Always-Hidden Items",
+                action: #selector(menuToggleAlwaysHidden), keyEquivalent: ""
+            )
+            alwaysToggle.target = self
+            menu.addItem(alwaysToggle)
 
-        let barItem = NSMenuItem(title: "Show Hidden Items Bar", action: #selector(menuOpenBar), keyEquivalent: "")
-        barItem.target = self
-        menu.addItem(barItem)
-
-        menu.addItem(.separator())
+            let barItem = NSMenuItem(title: "Show Hidden Items Bar", action: #selector(menuOpenBar), keyEquivalent: "")
+            barItem.target = self
+            menu.addItem(barItem)
+            menu.addItem(.separator())
+        }
         let itemsMenuItem = NSMenuItem(title: "Menu Bar Items", action: nil, keyEquivalent: "")
         itemsMenuItem.submenu = buildItemsSubmenu()
         menu.addItem(itemsMenuItem)
@@ -608,8 +626,9 @@ public final class MenuBarModule: NSObject, FeatureModule {
             submenu.addItem(.separator())
         }
         let snapshot = items()
-        for section in MenuBarSection.allCases {
-            let header = NSMenuItem(title: section.displayName, action: nil, keyEquivalent: "")
+        let sections = MenuBarHost.sectionsCanCollapse ? MenuBarSection.allCases : [.visible]
+        for section in sections {
+            let header = NSMenuItem(title: MenuBarHost.sectionsCanCollapse ? section.displayName : "Icons", action: nil, keyEquivalent: "")
             header.isEnabled = false
             submenu.addItem(header)
             let entries = snapshot.filter { $0.section == section }
@@ -635,13 +654,14 @@ public final class MenuBarModule: NSObject, FeatureModule {
 
     private func buildMoveSubmenu(for item: MenuBarItem, current: MenuBarSection) -> NSMenu {
         let menu = NSMenu()
-        for target in MenuBarSection.allCases where target != current {
+        let targets = MenuBarHost.sectionsCanCollapse ? MenuBarSection.allCases : []
+        for target in targets where target != current {
             let entry = NSMenuItem(title: "Move to \(target.displayName)", action: #selector(menuMoveItem(_:)), keyEquivalent: "")
             entry.target = self
             entry.representedObject = MoveRequest(item: item, section: target)
             menu.addItem(entry)
         }
-        if current != .visible {
+        if current != .visible, MenuBarHost.sectionsCanCollapse {
             menu.addItem(.separator())
             let swap = NSMenuItem(title: "Show Temporarily", action: #selector(menuSwapItem(_:)), keyEquivalent: "")
             swap.target = self

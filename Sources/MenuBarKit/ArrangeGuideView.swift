@@ -3,7 +3,19 @@ import SwiftUI
 /// Looping illustration of the one gesture that arranges the menu bar: hold ⌘ and drag an icon across the chevron.
 /// Shown in settings and the setup assistant instead of a per-item list, which turned out to be harder to grasp.
 public struct ArrangeGuideView: View {
-    public init() {}
+    /// Which menu bar the illustration shows.
+    public enum Style: Sendable {
+        /// Our chevron and double divider: hidden and always-hidden sections.
+        case sections
+        /// The system's own overflow button: icons on the left overflow first, ⌘-drag decides the order.
+        case systemOverflow
+    }
+
+    private let style: Style
+
+    public init(style: Style = .sections) {
+        self.style = style
+    }
 
     private static let period: TimeInterval = 4.2
     private static let barSize = CGSize(width: 420, height: 30)
@@ -15,7 +27,9 @@ public struct ArrangeGuideView: View {
         }
         .frame(width: Self.barSize.width, height: 92)
         .frame(maxWidth: .infinity)
-        .accessibilityLabel("Hold the command key and drag a menu bar icon to the left of the chevron to hide it.")
+        .accessibilityLabel(style == .sections
+                            ? "Hold the command key and drag a menu bar icon to the left of the chevron to hide it."
+                            : "Hold the command key and drag a menu bar icon to the left so it overflows first.")
     }
 
     // Timeline (fractions of one loop): pointer arrives, ⌘ appears, icon is dragged left across the divider,
@@ -41,11 +55,14 @@ public struct ArrangeGuideView: View {
             // Section tints
             Rectangle().fill(Color.accentColor.opacity(0.10)).frame(width: dividerX - 14, height: bar.height)
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 8))
-            Rectangle().fill(Color.accentColor.opacity(0.18)).frame(width: doubleDividerX - 14, height: bar.height)
-                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 8))
-
-            divider(bars: 2).position(x: doubleDividerX, y: bar.height / 2)
-            Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).position(x: dividerX, y: bar.height / 2)
+            if style == .sections {
+                Rectangle().fill(Color.accentColor.opacity(0.18)).frame(width: doubleDividerX - 14, height: bar.height)
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 8))
+                divider(bars: 2).position(x: doubleDividerX, y: bar.height / 2)
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).position(x: dividerX, y: bar.height / 2)
+            } else {
+                Image(systemName: "chevron.right.2").font(.system(size: 12, weight: .bold)).position(x: dividerX, y: bar.height / 2)
+            }
 
             // Idle icons
             glyph("wifi").position(x: 318, y: bar.height / 2)
@@ -76,9 +93,14 @@ public struct ArrangeGuideView: View {
                 .opacity(commandVisible ? 1 : 0)
 
             // Section labels
-            label("Always hidden", at: doubleDividerX / 2 - 7, width: doubleDividerX - 14)
-            label("Hidden", at: (doubleDividerX + dividerX) / 2, width: dividerX - doubleDividerX - 14)
-            label("Visible", at: (dividerX + bar.width) / 2, width: bar.width - dividerX - 14)
+            if style == .sections {
+                label("Always hidden", at: doubleDividerX / 2 - 7, width: doubleDividerX - 14)
+                label("Hidden", at: (doubleDividerX + dividerX) / 2, width: dividerX - doubleDividerX - 14)
+                label("Visible", at: (dividerX + bar.width) / 2, width: bar.width - dividerX - 14)
+            } else {
+                label("Overflows first", at: dividerX / 2 - 7, width: dividerX - 14)
+                label("Stays visible", at: (dividerX + bar.width) / 2, width: bar.width - dividerX - 14)
+            }
         }
         .opacity(fade)
         .animation(.easeInOut(duration: 0.25), value: dragging)

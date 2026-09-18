@@ -80,6 +80,12 @@ final class ControlItem {
             .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
     }
 
+    /// When the sections cannot collapse the item is only the app's menu; a chevron would promise a toggle.
+    func setMenuGlyph() {
+        statusItem.button?.image = NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Garakuta menu")?
+            .withSymbolConfiguration(.init(pointSize: 12, weight: .semibold))
+    }
+
     func remove() {
         NSStatusBar.system.removeStatusItem(statusItem)
     }

@@ -18,12 +18,17 @@ public struct MenuBarSettingsView: View {
         _settings = State(initialValue: module.settings)
     }
 
+    private var systemOverflow: Bool { MenuBarHost.systemManagesOverflow }
+
     public var body: some View {
         Form {
+            if systemOverflow { systemOverflowSection }
             arrangeSection
-            revealSection
-            barSection
-            autoArrangeSection
+            if !systemOverflow {
+                revealSection
+                barSection
+                autoArrangeSection
+            }
             spacersSection
             groupsSection
             permissionsSection
@@ -35,26 +40,50 @@ public struct MenuBarSettingsView: View {
 
     // MARK: Sections
 
+    private var systemOverflowSection: some View {
+        Section {
+            Label {
+                Text("On this version of macOS the menu bar tucks icons that do not fit next to the notch behind its own ›› button, and an app can no longer hide icons for you. Hidden sections, reveal triggers, the hidden items bar and automatic hiding are switched off. ⌘-drag still decides which icons overflow first, and spacers and groups keep working.")
+            } icon: {
+                Image(systemName: "info.circle")
+            }
+        } header: {
+            Text("Managed by macOS")
+        }
+    }
+
     private var arrangeSection: some View {
         Section {
-            ArrangeGuideView()
+            ArrangeGuideView(style: systemOverflow ? .systemOverflow : .sections)
                 .padding(.vertical, 6)
             VStack(alignment: .leading, spacing: 6) {
-                step(1, "Hold ⌘ and drag any icon in the menu bar.")
-                step(2, "Drop it left of ‹ to hide it, or left of the double divider to always hide it.")
-                step(3, "Click ‹ to show the hidden icons again, or use one of the reveal options below.")
-            }
-            HStack {
-                Button(module.isAlwaysHiddenSectionCollapsed ? "Show all sections while I arrange" : "Tuck the sections away") {
-                    module.setAlwaysHiddenSectionCollapsed(!module.isAlwaysHiddenSectionCollapsed)
+                if systemOverflow {
+                    step(1, "Hold ⌘ and drag any icon in the menu bar.")
+                    step(2, "Icons on the left overflow first when the bar runs out of room; keep the ones you care about on the right.")
+                    step(3, "Click the system's ›› button to see the overflowed icons.")
+                } else {
+                    step(1, "Hold ⌘ and drag any icon in the menu bar.")
+                    step(2, "Drop it left of ‹ to hide it, or left of the double divider to always hide it.")
+                    step(3, "Click ‹ to show the hidden icons again, or use one of the reveal options below.")
                 }
-                Text("The hidden section and the double divider stay visible while the pointer is in the menu bar.")
-                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if !systemOverflow {
+                HStack {
+                    Button(module.isAlwaysHiddenSectionCollapsed ? "Show all sections while I arrange" : "Tuck the sections away") {
+                        module.setAlwaysHiddenSectionCollapsed(!module.isAlwaysHiddenSectionCollapsed)
+                    }
+                    Text("The hidden section and the double divider stay visible while the pointer is in the menu bar.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
         } header: {
             Text("Arrange the menu bar")
         } footer: {
-            Text("Positions are remembered by macOS, so nothing needs to be saved here. Icons of apps that reset their position on launch are put back where you left them.")
+            if systemOverflow {
+                Text("Positions are remembered by macOS, so nothing needs to be saved here.")
+            } else {
+                Text("Positions are remembered by macOS, so nothing needs to be saved here. Icons of apps that reset their position on launch are put back where you left them.")
+            }
         }
     }
 
@@ -160,7 +189,9 @@ public struct MenuBarSettingsView: View {
         } header: {
             Text("Groups")
         } footer: {
-            Text("A group is one icon in the menu bar; clicking it lists its members. Pick the members here, then hide the originals with ⌘-drag.")
+            Text(systemOverflow
+                 ? "A group is one icon in the menu bar; clicking it lists its members. Pick the members here, then ⌘-drag the originals to the left so they overflow first."
+                 : "A group is one icon in the menu bar; clicking it lists its members. Pick the members here, then hide the originals with ⌘-drag.")
         }
     }
 
@@ -211,7 +242,9 @@ public struct MenuBarSettingsView: View {
         } header: {
             Text("Permissions")
         } footer: {
-            Text("⌘-drag needs no permission. Accessibility lets the hidden items bar and groups list icons by name and click them; Screen Recording adds captured icon images.")
+            Text(systemOverflow
+                 ? "⌘-drag needs no permission. Accessibility lets groups list icons by name and click them."
+                 : "⌘-drag needs no permission. Accessibility lets the hidden items bar and groups list icons by name and click them; Screen Recording adds captured icon images.")
         }
     }
 

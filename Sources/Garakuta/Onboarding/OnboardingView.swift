@@ -209,23 +209,34 @@ struct OnboardingView: View {
 
     private var menuBarTour: some View {
         VStack(alignment: .leading, spacing: 18) {
-            header("Your menu bar, in three sections", "Garakuta adds a ‹ chevron and a double divider. Everything left of ‹ is hidden, everything left of the double divider is always hidden. Hold ⌘ and drag any icon across them to move it.")
-            ArrangeGuideView()
-            HStack(spacing: 12) {
-                Button(model.hiddenSectionCollapsed ? "Show hidden items now" : "Hide them again") { model.toggleHiddenSection() }
-                    .buttonStyle(.borderedProminent)
-                Text(model.hiddenSectionCollapsed ? "Hidden section is collapsed." : "Hidden section is showing. Look at the menu bar.")
-                    .foregroundStyle(.secondary)
-            }
-            Toggle("Also reveal when I hover the menu bar", isOn: Binding(get: { model.revealOnHover }, set: { model.revealOnHover = $0 }))
-            if model.accessibilityGranted {
-                HStack(spacing: 18) {
-                    ForEach(MenuBarSection.allCases, id: \.self) { section in
-                        Label("\(model.itemCounts[section] ?? 0) \(section.displayName.lowercased())", systemImage: "app.badge")
-                    }
+            if MenuBarHost.systemManagesOverflow {
+                header("Your menu bar, managed by macOS", "This version of macOS tucks icons that do not fit next to the notch behind its own ›› button, and an app can no longer hide icons for you. What still matters is the order: hold ⌘ and drag the icons you care about to the right, and the ones on the left overflow first.")
+                ArrangeGuideView(style: .systemOverflow)
+            } else {
+                header("Your menu bar, in three sections", "Garakuta adds a ‹ chevron and a double divider. Everything left of ‹ is hidden, everything left of the double divider is always hidden. Hold ⌘ and drag any icon across them to move it.")
+                ArrangeGuideView()
+                HStack(spacing: 12) {
+                    Button(model.hiddenSectionCollapsed ? "Show hidden items now" : "Hide them again") { model.toggleHiddenSection() }
+                        .buttonStyle(.borderedProminent)
+                    Text(model.hiddenSectionCollapsed ? "Hidden section is collapsed." : "Hidden section is showing. Look at the menu bar.")
+                        .foregroundStyle(.secondary)
                 }
-                .font(.callout).foregroundStyle(.secondary)
-                Text("Spacers, groups and the hidden items bar live in Settings › Menu Bar.").font(.caption).foregroundStyle(.secondary)
+                Toggle("Also reveal when I hover the menu bar", isOn: Binding(get: { model.revealOnHover }, set: { model.revealOnHover = $0 }))
+            }
+            if model.accessibilityGranted {
+                if MenuBarHost.systemManagesOverflow {
+                    Label("\(model.itemCounts.values.reduce(0, +)) icons found", systemImage: "app.badge")
+                        .font(.callout).foregroundStyle(.secondary)
+                    Text("Spacers and groups live in Settings › Menu Bar.").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 18) {
+                        ForEach(MenuBarSection.allCases, id: \.self) { section in
+                            Label("\(model.itemCounts[section] ?? 0) \(section.displayName.lowercased())", systemImage: "app.badge")
+                        }
+                    }
+                    .font(.callout).foregroundStyle(.secondary)
+                    Text("Spacers, groups and the hidden items bar live in Settings › Menu Bar.").font(.caption).foregroundStyle(.secondary)
+                }
             } else {
                 Text("Grant Accessibility so the hidden items bar and groups can list icons by name.").font(.caption).foregroundStyle(.secondary)
             }
