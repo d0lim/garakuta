@@ -15,6 +15,9 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
   (macOS 15.4 and later), which answers for browsers too. Browser playback now shows the real title, artist,
   album and position without Automation permission; the tab-title fallback remains for systems that lack the
   interface. Artwork still comes from players that answer the older query, so browser playback shows the app icon.
+- Play and pause are reflected as they happen: the playback state and the position are read from the item on
+  every change, so the button and the animated bars follow immediately and the progress bar lands on the right
+  place instead of the stale position the source last stamped.
 
 ### Fixed
 

@@ -59,6 +59,8 @@ public final class NowPlayingService {
     private var pollTimer: Timer?
     private var pollInFlight = false
     private var artworkTask: Task<Void, Never>?
+    /// Item whose artwork the helper's artwork mode was last asked for; asked once per item.
+    private var artworkFetchKey: String?
     private var lastArtworkURL: URL?
     private let executor = AppleScriptExecutor()
 
@@ -177,13 +179,23 @@ public final class NowPlayingService {
             return
         }
         let rate = number("PlaybackRate") ?? (record.playing ? 1 : 0)
+        // The item's live position is right the moment the playback state changes; the reported elapsed time and
+        // its timestamp only catch up a beat later, and extrapolating from that pair in between rewinds the bar.
+        var elapsed = record.position ?? number("ElapsedTime") ?? 0
+        var elapsedAt = record.position != nil ? record.parsedAt : (info["kMRMediaRemoteNowPlayingInfoTimestamp"] as? Date ?? Date())
+        // A position that agrees with where the bar already is keeps the existing anchor, so the steady stream of
+        // position reports neither restarts the extrapolation nor counts as a change worth publishing.
+        if let current = track, current.isPlaying == record.playing, current.title == title,
+           abs(current.position - elapsed) < 2 {
+            elapsed = current.reportedElapsed
+            elapsedAt = current.reportedAt
+        }
         let artworkData = info["kMRMediaRemoteNowPlayingInfoArtworkData"] as? Data
         let artworkKey = string("ArtworkIdentifier").nilIfEmpty ?? string("ContentItemIdentifier").nilIfEmpty
             ?? artworkData.map { "\($0.count)" }
         let new = Track(sourceName: app?.localizedName ?? "Now Playing", bundleIdentifier: app?.bundleIdentifier,
                         isPlaying: record.playing, title: title, artist: artist, album: string("Album"),
-                        duration: number("Duration") ?? 0, reportedElapsed: number("ElapsedTime") ?? 0,
-                        reportedAt: info["kMRMediaRemoteNowPlayingInfoTimestamp"] as? Date ?? Date(),
+                        duration: number("Duration") ?? 0, reportedElapsed: elapsed, reportedAt: elapsedAt,
                         playbackRate: record.playing ? (rate > 0 ? rate : 1) : 0, artworkKey: artworkKey)
         if let artworkData, !artworkData.isEmpty, artworkKey != track?.artworkKey || artwork == nil {
             artwork = NSImage(data: artworkData)
@@ -191,6 +203,16 @@ public final class NowPlayingService {
             artwork = nil
         }
         if new != track { publish(new) }
+        // The direct read carries no artwork bytes; a separate helper process asks the callback query once per
+        // item. Browsers never answer it and the process simply times out.
+        if artworkData == nil, let artworkKey, artworkKey != artworkFetchKey {
+            artworkFetchKey = artworkKey
+            bridge.fetchArtwork { [weak self] data, key in
+                guard let self, let data, !data.isEmpty, key == nil || key == self.track?.artworkKey else { return }
+                self.artwork = NSImage(data: data)
+                self.onChange?()
+            }
+        }
     }
 
     // MARK: Browser tab titles
@@ -366,6 +388,10 @@ final class NowPlayingBridgeClient: @unchecked Sendable {
         var pid: Int
         /// Bundle identifier of the playing app when the helper could name it (macOS 15.4 and later).
         var bundle: String?
+        /// The item's own live position in seconds, when the helper could read it, and when it was parsed.
+        /// Preferred over the elapsed-time-plus-timestamp pair, which lags a playback-state change by a moment.
+        var position: TimeInterval?
+        var parsedAt = Date()
     }
 
     enum Command: Int {
@@ -486,9 +512,40 @@ final class NowPlayingBridgeClient: @unchecked Sendable {
             let record = Record(info: object["info"] as? [String: Any] ?? [:],
                                 playing: (object["playing"] as? Bool) ?? false,
                                 pid: (object["pid"] as? Int) ?? 0,
-                                bundle: object["bundle"] as? String)
+                                bundle: object["bundle"] as? String,
+                                position: (object["position"] as? NSNumber)?.doubleValue)
             Task { @MainActor in self.onRecord?(record) }
         }
+    }
+
+    /// Fetches the current item's artwork through a short-lived helper process running the callback query, which
+    /// only players outside browsers answer. Delivers the bytes and the item they belong to, or nil on a timeout.
+    func fetchArtwork(_ completion: @escaping @MainActor (Data?, String?) -> Void) {
+        guard let script, let library else { Task { @MainActor in completion(nil, nil) }; return }
+        let process = Process()
+        process.executableURL = Self.interpreter
+        process.arguments = [script.path, library.path]
+        var env = ProcessInfo.processInfo.environment
+        env["GARAKUTA_NOW_PLAYING_MODE"] = "artwork"
+        process.environment = env
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = nil
+        process.terminationHandler = { _ in
+            let output = pipe.fileHandleForReading.readDataToEndOfFile()
+            var data: Data?
+            var key: String?
+            for line in output.split(separator: 0x0A) {
+                guard let plist = Data(base64Encoded: Data(line)),
+                      let object = try? PropertyListSerialization.propertyList(from: plist, format: nil) as? [String: Any],
+                      let info = object["info"] as? [String: Any] else { continue }
+                data = info["kMRMediaRemoteNowPlayingInfoArtworkData"] as? Data
+                key = (info["kMRMediaRemoteNowPlayingInfoArtworkIdentifier"] as? String)
+                    ?? (info["kMRMediaRemoteNowPlayingInfoContentItemIdentifier"] as? String)
+            }
+            Task { @MainActor in completion(data, key) }
+        }
+        do { try process.run() } catch { Task { @MainActor in completion(nil, nil) } }
     }
 
     /// Sends a transport command through a short-lived helper process.

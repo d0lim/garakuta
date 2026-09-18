@@ -59,6 +59,7 @@ static bool loadService(void) {
 typedef id (*MsgSendIdFn)(id, SEL);
 typedef Boolean (*MsgSendBoolFn)(id, SEL);
 typedef int (*MsgSendIntFn)(id, SEL);
+typedef double (*MsgSendDoubleFn)(id, SEL);
 
 static id message(id target, const char *selector) {
     return target ? ((MsgSendIdFn)objc_msgSend)(target, sel_registerName(selector)) : NULL;
@@ -66,7 +67,12 @@ static id message(id target, const char *selector) {
 
 /// Reads the current item, its owner and the playback state straight from the request class. Every returned
 /// object is retained for the caller; the autoreleased intermediates go with the pool.
-static bool directSnapshot(CFDictionaryRef *outInfo, Boolean *outPlaying, int *outPID, CFStringRef *outBundle) {
+///
+/// `outPosition` is the item's own live position: it advances while playing and stands still while paused, and it
+/// is right even in the moment between the playback-state change and the metadata catching up, which is what the
+/// elapsed-time-plus-timestamp pair is not. Negative when the item does not offer it.
+static bool directSnapshot(CFDictionaryRef *outInfo, Boolean *outPlaying, int *outPID, CFStringRef *outBundle,
+                           double *outPosition) {
     if (!gRequestClass) return false;
     void *pool = objc_autoreleasePoolPush();
     id path = message((id)gRequestClass, "localNowPlayingPlayerPath");
@@ -78,6 +84,10 @@ static bool directSnapshot(CFDictionaryRef *outInfo, Boolean *outPlaying, int *o
     id item = message((id)gRequestClass, "localNowPlayingItem");
     CFDictionaryRef info = (CFDictionaryRef)message(item, "nowPlayingInfo");
     *outInfo = info ? CFRetain(info) : NULL;
+    id metadata = message(item, "metadata");
+    SEL positionSelector = sel_registerName("calculatedPlaybackPosition");
+    *outPosition = metadata && class_respondsToSelector(object_getClass(metadata), positionSelector)
+        ? ((MsgSendDoubleFn)objc_msgSend)(metadata, positionSelector) : -1;
     objc_autoreleasePoolPop(pool);
     return true;
 }
@@ -117,32 +127,21 @@ static void copyPlistEntries(const void *key, const void *value, void *context) 
     }
 }
 
-/// Artwork from the last answered callback query, kept for the item it belongs to. The request class hands
-/// out metadata without artwork bytes; players that answer the callback query (Music, Spotify and most native
-/// apps) still supply them there, so the two are merged. gQueue only.
-static CFDataRef gArtworkData;
-static CFStringRef gArtworkItem;
-
-/// The identifier a dictionary's artwork belongs to: the artwork's own, else the item's.
-static CFStringRef artworkItemIdentifier(CFDictionaryRef info) {
-    if (!info) return NULL;
-    CFTypeRef value = CFDictionaryGetValue(info, CFSTR("kMRMediaRemoteNowPlayingInfoArtworkIdentifier"));
-    if (!value) value = CFDictionaryGetValue(info, CFSTR("kMRMediaRemoteNowPlayingInfoContentItemIdentifier"));
-    return value && CFGetTypeID(value) == CFStringGetTypeID() ? (CFStringRef)value : NULL;
-}
-
-static void emit(CFDictionaryRef info, Boolean playing, int pid, CFStringRef bundle) {
+/// `position` is the item's live position in seconds, or negative when unknown. It is deliberately not paired
+/// with a timestamp: the app stamps the record as it parses it, which keeps a paused item's records identical
+/// so the dedupe below still collapses them.
+static void emit(CFDictionaryRef info, Boolean playing, int pid, CFStringRef bundle, double position) {
     if (getenv("GARAKUTA_NOW_PLAYING_DEBUG")) fprintf(stderr, "emit: info %s (%ld keys) playing %d pid %d\n", info ? "present" : "NULL", info ? (long)CFDictionaryGetCount(info) : 0L, playing, pid);
-    CFMutableDictionaryRef record = CFDictionaryCreateMutable(NULL, 4, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFMutableDictionaryRef record = CFDictionaryCreateMutable(NULL, 5, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFMutableDictionaryRef cleanInfo = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (info) CFDictionaryApplyFunction(info, copyPlistEntries, cleanInfo);
-    CFStringRef itemID = artworkItemIdentifier(info);
-    if (gArtworkData && itemID && gArtworkItem && CFEqual(itemID, gArtworkItem)
-        && !CFDictionaryContainsKey(cleanInfo, CFSTR("kMRMediaRemoteNowPlayingInfoArtworkData"))) {
-        CFDictionarySetValue(cleanInfo, CFSTR("kMRMediaRemoteNowPlayingInfoArtworkData"), gArtworkData);
-    }
     CFDictionarySetValue(record, CFSTR("info"), cleanInfo);
     if (bundle) CFDictionarySetValue(record, CFSTR("bundle"), bundle);
+    if (position >= 0) {
+        CFNumberRef value = CFNumberCreate(NULL, kCFNumberDoubleType, &position);
+        CFDictionarySetValue(record, CFSTR("position"), value);
+        CFRelease(value);
+    }
     CFDictionarySetValue(record, CFSTR("playing"), playing ? kCFBooleanTrue : kCFBooleanFalse);
     CFNumberRef pidNumber = CFNumberCreate(NULL, kCFNumberIntType, &pid);
     CFDictionarySetValue(record, CFSTR("pid"), pidNumber);
@@ -164,49 +163,29 @@ static void emit(CFDictionaryRef info, Boolean playing, int pid, CFStringRef bun
 
 /// Owner of the now-playing item as of the last complete snapshot. gQueue only.
 static int gLastPID;
-static void snapshot(bool queryInfo, bool emitPartial, void (^completion)(void));
 
 /// Emits the current state on gQueue.
 ///
 /// With the request class (macOS 15.4 and later) the owner, playback state and metadata are read directly and
-/// at once; a callback query then only fetches artwork bytes for players that answer it. Without it the three
+/// at once; artwork bytes are left to the "artwork" mode. Without the request class the three
 /// callback queries are issued together: `queryInfo` false asks only for playback state and owner and reuses the
 /// last metadata, provided it came from the same app, and when a piece has not arrived after two seconds the
 /// snapshot either reports what it has (`emitPartial`) or is dropped. Browsers never answer the callback metadata
 /// query (the app reads their tab titles instead in that case); the abandoned request does no harm beyond the wait.
-/// Remembers artwork from a callback answer for the item it describes and re-emits the current state with it.
-static void artworkArrived(CFDictionaryRef legacy) {
-    CFTypeRef data = legacy ? CFDictionaryGetValue(legacy, CFSTR("kMRMediaRemoteNowPlayingInfoArtworkData")) : NULL;
-    CFStringRef itemID = artworkItemIdentifier(legacy);
-    if (!data || CFGetTypeID(data) != CFDataGetTypeID() || !itemID) return;
-    if (gArtworkData) CFRelease(gArtworkData);
-    if (gArtworkItem) CFRelease(gArtworkItem);
-    gArtworkData = CFRetain(data);
-    gArtworkItem = CFRetain(itemID);
-    snapshot(false, true, NULL);
-}
-
 static void snapshot(bool queryInfo, bool emitPartial, void (^completion)(void)) {
     CFDictionaryRef directInfo = NULL;
     Boolean directPlaying = false;
     int directPID = 0;
     CFStringRef directBundle = NULL;
-    if (directSnapshot(&directInfo, &directPlaying, &directPID, &directBundle)) {
-        CFStringRef itemID = artworkItemIdentifier(directInfo);
-        bool wantArtwork = queryInfo && directInfo && itemID && !(gArtworkItem && CFEqual(itemID, gArtworkItem));
+    double directPosition = -1;
+    if (directSnapshot(&directInfo, &directPlaying, &directPID, &directBundle, &directPosition)) {
+        // No callback query here, not even for artwork: a query the player never answers (browsers) wedges the
+        // connection, and every later direct read and notification stalls behind it. Artwork is fetched by a
+        // separate short-lived process (mode "artwork") so a wedge costs only that process.
+        (void)queryInfo;
         gLastPID = directPID;
-        emit(directInfo, directPlaying, directPID, directBundle);
-        if (wantArtwork) {
-            // Players that answer the callback query add the artwork bytes; browsers never answer, and the
-            // abandoned request does no harm.
-            gGetInfo(gCallbackQueue, ^(CFDictionaryRef value) {
-                CFDictionaryRef legacy = value ? CFRetain(value) : NULL;
-                dispatch_async(gQueue, ^{
-                    artworkArrived(legacy);
-                    if (legacy) CFRelease(legacy);
-                });
-            });
-        }
+        if (getenv("GARAKUTA_NOW_PLAYING_DEBUG")) fprintf(stderr, "direct: playing %d pid %d position %.2f info %s\n", directPlaying, directPID, directPosition, directInfo ? "present" : "NULL");
+        emit(directInfo, directPlaying, directPID, directBundle, directPosition);
         if (directInfo) CFRelease(directInfo);
         if (directBundle) CFRelease(directBundle);
         if (completion) completion();
@@ -237,7 +216,7 @@ static void snapshot(bool queryInfo, bool emitPartial, void (^completion)(void))
         }
         CFDictionaryRef effective = fresh ? info : (pid != 0 && pid == gLastInfoPID ? gLastInfo : NULL);
         if (complete) gLastPID = pid;
-        if (complete || emitPartial) emit(effective, playing, pid, NULL);
+        if (complete || emitPartial) emit(effective, playing, pid, NULL, -1);
         else if (getenv("GARAKUTA_NOW_PLAYING_DEBUG")) fprintf(stderr, "query timed out; skipped\n");
         if (completion) completion();
     };
@@ -295,6 +274,27 @@ static void once(void) {
     CFRunLoopRun();
 }
 
+/// Asks the callback query once for the current item's metadata, which carries the artwork bytes for players
+/// that answer it, prints the record and exits. Players that never answer (browsers) make this time out; the
+/// stream helper is untouched either way.
+static void artwork(void) {
+    gRegister(gNotificationQueue);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 3), gQueue, ^{
+        gGetInfo(gCallbackQueue, ^(CFDictionaryRef value) {
+            CFDictionaryRef info = value ? CFRetain(value) : NULL;
+            dispatch_async(gQueue, ^{
+                if (info) {
+                    emit(info, false, 0, NULL, -1);
+                    CFRelease(info);
+                }
+                exit(info ? 0 : 4);
+            });
+        });
+    });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), gQueue, ^{ exit(4); });
+    CFRunLoopRun();
+}
+
 static void command(void) {
     const char *value = getenv("GARAKUTA_NOW_PLAYING_COMMAND");
     unsigned int cmd = value ? (unsigned int)strtoul(value, NULL, 10) : 2;
@@ -317,6 +317,7 @@ void NowPlayingBridgeMain(void) {
     const char *mode = getenv("GARAKUTA_NOW_PLAYING_MODE");
     if (mode && strcmp(mode, "command") == 0) command();
     else if (mode && strcmp(mode, "once") == 0) once();
+    else if (mode && strcmp(mode, "artwork") == 0) artwork();
     else stream();
     exit(0);
 }

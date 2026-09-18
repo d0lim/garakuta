@@ -140,17 +140,29 @@ private struct NowPlayingCompactArtwork: View {
 
 private struct NowPlayingCompactBars: View {
     let service: NowPlayingService
-    @State private var phase = false
+
+    /// Driven by the clock rather than by a repeating animation: the bars settle the moment playback pauses and
+    /// pick up again on resume. A `repeatForever` animation is installed once, and a pause in between leaves it
+    /// with nothing to restart.
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<4, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(.white)
-                    .frame(width: 3, height: service.track?.isPlaying == true ? (phase ? [10, 16, 7, 13][i] : [14, 8, 15, 9][i]) : 4)
+        let playing = service.track?.isPlaying == true
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !playing)) { context in
+            let time = context.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 2) {
+                ForEach(0..<4, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(.white)
+                        .frame(width: 3, height: playing ? Self.height(bar: index, at: time) : 4)
+                }
             }
+            .frame(width: 18, height: 18)
+            .animation(.easeOut(duration: 0.2), value: playing)
         }
-        .frame(width: 18, height: 18)
-        .animation(.easeInOut(duration: 0.35).repeatForever(autoreverses: true), value: phase)
-        .onAppear { phase = true }
+    }
+
+    /// Each bar rides its own offset cycle so they do not rise and fall as one block.
+    private static func height(bar index: Int, at time: TimeInterval) -> CGFloat {
+        let wave = sin(time * 2.4 + Double(index) * 1.3)
+        return 6 + CGFloat((wave + 1) / 2) * 10
     }
 }
