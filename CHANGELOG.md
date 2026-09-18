@@ -4,6 +4,8 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-18
+
 ### Added
 
 - Window switcher: windows are listed in the order they were last used, kept current from app events rather
@@ -118,7 +120,8 @@ First public release.
 - Now-playing information comes from Music and Spotify through Apple Events only.
 - Intel Macs are untested.
 
-[Unreleased]: https://github.com/d0lim/garakuta/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/d0lim/garakuta/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/d0lim/garakuta/releases/tag/v0.5.0
 [0.4.0]: https://github.com/d0lim/garakuta/releases/tag/v0.4.0
 [0.3.0]: https://github.com/d0lim/garakuta/releases/tag/v0.3.0
 [0.2.0]: https://github.com/d0lim/garakuta/releases/tag/v0.2.0
