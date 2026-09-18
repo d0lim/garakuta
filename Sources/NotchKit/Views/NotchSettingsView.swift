@@ -158,6 +158,9 @@ public struct NotchSettingsView: View {
             .frame(minHeight: 110)
             Text("Top of the list wins the primary slot. Now Playing follows whatever app the system reports as playing: music players, browsers, podcasts and video alike.")
                 .font(.caption).foregroundStyle(.secondary)
+            Toggle("Move the bars with the music", isOn: $module.settings.audioReactiveBars)
+            Text("Reads the level of what the Mac is playing and turns it into the five bars beside the notch, while something is playing and no longer. Only those five numbers are taken from it; no audio is recorded, kept or sent anywhere. macOS may ask for permission to record system audio the first time. Off: the bars keep their own rhythm.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 

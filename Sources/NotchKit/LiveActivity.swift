@@ -140,29 +140,149 @@ private struct NowPlayingCompactArtwork: View {
 
 private struct NowPlayingCompactBars: View {
     let service: NowPlayingService
+    private let levels = NotchServices.shared.audioLevels
 
-    /// Driven by the clock rather than by a repeating animation: the bars settle the moment playback pauses and
-    /// pick up again on resume. A `repeatForever` animation is installed once, and a pause in between leaves it
-    /// with nothing to restart.
     var body: some View {
-        let playing = service.track?.isPlaying == true
-        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !playing)) { context in
-            let time = context.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 2) {
-                ForEach(0..<4, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(.white)
-                        .frame(width: 3, height: playing ? Self.height(bar: index, at: time) : 4)
-                }
-            }
-            .frame(width: 18, height: 18)
-            .animation(.easeOut(duration: 0.2), value: playing)
-        }
-    }
-
-    /// Each bar rides its own offset cycle so they do not rise and fall as one block.
-    private static func height(bar index: Int, at time: TimeInterval) -> CGFloat {
-        let wave = sin(time * 2.4 + Double(index) * 1.3)
-        return 6 + CGFloat((wave + 1) / 2) * 10
+        // Only the two states SwiftUI needs to know about; the levels themselves reach the bars directly.
+        NowPlayingBars(playing: service.track?.isPlaying == true, reactive: levels.isRunning)
+            .frame(width: 20, height: 18)
     }
 }
+
+/// Five bars drawn with Core Animation layers, which interpolate the heights themselves.
+///
+/// Every SwiftUI version of this was expensive in the same way: the bars sit in the compact row, the row measures
+/// itself so the panel can size to its content, and so each new height re-ran a layout pass. A canvas skipped the
+/// layout but still had to be redrawn on every frame. Handing the heights to the layers costs a property set a
+/// dozen times a second, and nothing at all while the idle wave is running.
+private struct NowPlayingBars: NSViewRepresentable {
+    let playing: Bool
+    /// True while levels are being measured; the bars then follow them instead of the idle wave.
+    let reactive: Bool
+
+    func makeNSView(context: Context) -> BarsView {
+        let view = BarsView()
+        view.playing = playing
+        view.reactive = reactive
+        context.coordinator.token = NotchServices.shared.audioLevels.subscribe { [weak view] levels in
+            view?.apply(levels: levels)
+        }
+        return view
+    }
+
+    func updateNSView(_ view: BarsView, context: Context) {
+        view.playing = playing
+        view.reactive = reactive
+        view.apply(levels: NotchServices.shared.audioLevels.levels)
+    }
+
+    static func dismantleNSView(_ view: BarsView, coordinator: Coordinator) {
+        if let token = coordinator.token { NotchServices.shared.audioLevels.unsubscribe(token) }
+        coordinator.token = nil
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var token: UUID?
+    }
+
+    final class BarsView: NSView {
+        private static let count = AudioLevelService.bandCount
+        private static let barWidth: CGFloat = 2.5
+        private static let spacing: CGFloat = 2
+        private static let height: CGFloat = 16
+        /// The shortest a bar gets, as a fraction of its full height: a flat row of dots rather than nothing.
+        private static let floorScale: CGFloat = 0.25
+        private static let idleKey = "idle"
+
+        private var bars: [CALayer] = []
+        private var idleRunning = false
+        var playing = false
+        var reactive = false
+
+        override init(frame frameRect: NSRect) {
+            super.init(frame: frameRect)
+            wantsLayer = true
+            let total = CGFloat(Self.count) * Self.barWidth + CGFloat(Self.count - 1) * Self.spacing
+            for index in 0..<Self.count {
+                let bar = CALayer()
+                bar.backgroundColor = NSColor.white.cgColor
+                bar.cornerRadius = 1
+                bar.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+                bar.bounds = CGRect(x: 0, y: 0, width: Self.barWidth, height: Self.height)
+                bar.position = CGPoint(x: (frameRect.width - total) / 2 + CGFloat(index) * (Self.barWidth + Self.spacing) + Self.barWidth / 2,
+                                       y: frameRect.height / 2)
+                bar.transform = CATransform3DMakeScale(1, Self.floorScale, 1)
+                layer?.addSublayer(bar)
+                bars.append(bar)
+            }
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        /// The bars keep their own size whatever the row around them does, so a new height never moves anything else.
+        override var intrinsicContentSize: NSSize { NSSize(width: 20, height: 18) }
+
+        override func layout() {
+            super.layout()
+            let total = CGFloat(Self.count) * Self.barWidth + CGFloat(Self.count - 1) * Self.spacing
+            for (index, bar) in bars.enumerated() {
+                bar.position = CGPoint(x: (bounds.width - total) / 2 + CGFloat(index) * (Self.barWidth + Self.spacing) + Self.barWidth / 2,
+                                       y: bounds.height / 2)
+            }
+        }
+
+        func apply(levels: [Float]) {
+            guard playing else {
+                stopIdle()
+                setScales(Array(repeating: Self.floorScale, count: Self.count), duration: 0.2)
+                return
+            }
+            guard reactive, levels.count == Self.count else {
+                startIdle()
+                return
+            }
+            stopIdle()
+            setScales(levels.map { Self.floorScale + CGFloat($0) * (1 - Self.floorScale) }, duration: 1.0 / 12)
+        }
+
+        private func setScales(_ scales: [CGFloat], duration: CFTimeInterval) {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(duration)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
+            for (bar, scale) in zip(bars, scales) {
+                bar.transform = CATransform3DMakeScale(1, scale, 1)
+            }
+            CATransaction.commit()
+        }
+
+        /// A repeating animation per bar, offset so they do not rise and fall as one block. Once installed it runs
+        /// without waking the app at all.
+        private func startIdle() {
+            guard !idleRunning else { return }
+            idleRunning = true
+            for (index, bar) in bars.enumerated() {
+                let animation = CABasicAnimation(keyPath: "transform.scale.y")
+                animation.fromValue = 0.4
+                animation.toValue = 1.0
+                animation.duration = 0.45
+                animation.autoreverses = true
+                animation.repeatCount = .infinity
+                animation.timeOffset = Double(index) * 0.17
+                animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                bar.add(animation, forKey: Self.idleKey)
+            }
+        }
+
+        private func stopIdle() {
+            guard idleRunning else { return }
+            idleRunning = false
+            for bar in bars { bar.removeAnimation(forKey: Self.idleKey) }
+        }
+    }
+}
+
+
+
+

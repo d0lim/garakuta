@@ -11,6 +11,10 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ### Changed
 
+- The now-playing bars beside the notch can move with the music: five bars, driven by the level of what the Mac
+  is actually playing. Off by default, under Notch → Live Activities, because it reads system audio; only the
+  five band levels are taken from it and nothing is recorded or kept, and the tap exists only while something
+  is playing. macOS may ask for permission to record system audio the first time.
 - Now Playing reads the current item straight from the system's media service through its request interface
   (macOS 15.4 and later), which answers for browsers too. Browser playback now shows the real title, artist,
   album and position without Automation permission; the tab-title fallback remains for systems that lack the

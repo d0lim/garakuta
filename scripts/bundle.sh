@@ -32,6 +32,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>LSUIElement</key><true/>
   <key>NSAppleEventsUsageDescription</key><string>Garakuta reads what is playing in Music, Spotify or a browser tab to show it in the notch panel.</string>
+  <key>NSAudioCaptureUsageDescription</key><string>Garakuta reads the level of what you are playing so the bars beside the notch can move with the music. Only the levels are used; no audio is recorded or kept.</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST

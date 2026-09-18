@@ -8,6 +8,7 @@ public final class NotchServices {
     public let nowPlaying = NowPlayingService()
     public let timer = TimerService()
     public let battery = BatteryService()
+    public let audioLevels = AudioLevelService()
     public let shelf = ShelfStore()
     let capture = CaptureDetector()
 
@@ -20,6 +21,7 @@ public final class NotchServices {
 
     func stop() {
         nowPlaying.isEnabled = false
+        audioLevels.isEnabled = false
         battery.stop()
         capture.stop()
     }

@@ -77,6 +77,7 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 | N03-1 | Play something in any app that publishes to the system now-playing service (Music, a video player) | The panel goes compact with playback info on both sides; the expanded page shows title, artist, artwork, progress and the app name. Pause: the activity stays for five minutes, then goes away. |
 | N03-1a | Play a YouTube or YouTube Music tab in a browser | The activity appears with the browser's name and the real title, artist and progress from the system's media service, with no Automation prompt (macOS 15.4 and later). Artwork falls back to the app icon. On older systems the tab title follows within two seconds once the Automation prompt is allowed. |
 | N03-1c | Pause and resume from the notch, or from the app | The play/pause button and the animated bars change at once, and the progress bar keeps the position it was at rather than jumping. |
+| N03-1d | Turn on Notch → Live Activities → Move the bars with the music, then play something | The five bars follow the music, flatten when it is paused, and go back to their own rhythm when the setting is off. |
 | N03-1b | Quit the app and check `pgrep -f nowplaying.pl` | The helper process exits with the app. |
 | N03-2 | Start the timer widget while playing | Primary and secondary activities show together. |
 | N03-3 | Connect or disconnect the power adapter | The battery activity shows for a few seconds. |

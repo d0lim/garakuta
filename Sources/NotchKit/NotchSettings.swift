@@ -141,6 +141,9 @@ public struct NotchSettings: Codable, Equatable, Sendable {
     /// Off by default so the panel shows up in screenshots; on, it is invisible to screen capture and sharing.
     public var hideFromCapture = false
     public var autoHideWhileCapturing = false
+    /// Off by default: the bars move with the music only when asked, because that means tapping what the Mac
+    /// is playing. Only band levels are taken from it; nothing is recorded or kept.
+    public var audioReactiveBars = false
     public var widgetLayout: [WidgetLayoutEntry] = [
         .init(id: "nowPlaying", enabled: true),
         .init(id: "shelf", enabled: true),
@@ -157,6 +160,7 @@ public struct NotchSettings: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case enabled, appearance, hoverOpenDelay, hoverCloseDelay, hoverPadding, swipeNavigationEnabled, dragToOpenEnabled
         case modifierOnlyShow, fullScreenRule, missionControlRule, hideFromCapture, autoHideWhileCapturing
+        case audioReactiveBars
         case widgetLayout, liveActivities, displayOverrides
     }
 
@@ -177,6 +181,7 @@ public struct NotchSettings: Codable, Equatable, Sendable {
         missionControlRule = (try? c.decodeIfPresent(MissionControlRule.self, forKey: .missionControlRule)) ?? d.missionControlRule
         hideFromCapture = try c.decodeIfPresent(Bool.self, forKey: .hideFromCapture) ?? d.hideFromCapture
         autoHideWhileCapturing = try c.decodeIfPresent(Bool.self, forKey: .autoHideWhileCapturing) ?? d.autoHideWhileCapturing
+        audioReactiveBars = try c.decodeIfPresent(Bool.self, forKey: .audioReactiveBars) ?? d.audioReactiveBars
         widgetLayout = (try? c.decodeIfPresent([WidgetLayoutEntry].self, forKey: .widgetLayout)) ?? d.widgetLayout
         liveActivities = (try? c.decodeIfPresent(LiveActivitySettings.self, forKey: .liveActivities)) ?? d.liveActivities
         displayOverrides = (try? c.decodeIfPresent([String: DisplayOverride].self, forKey: .displayOverrides)) ?? d.displayOverrides

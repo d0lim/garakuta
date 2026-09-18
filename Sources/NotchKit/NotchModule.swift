@@ -32,7 +32,10 @@ public final class NotchModule: FeatureModule {
         activities.register(NowPlayingActivity(service: services.nowPlaying))
         activities.register(BatteryActivity(service: services.battery))
         activities.settings = settings.liveActivities
-        services.nowPlaying.onChange = { [weak self] in self?.activities.bump() }
+        services.nowPlaying.onChange = { [weak self] in
+            self?.activities.bump()
+            self?.applyAudioLevelState()
+        }
         services.timer.onChange = { [weak self] in self?.activities.bump() }
         services.battery.onChange = { [weak self] in self?.activities.bump() }
         activities.onChange = { [weak self] in
@@ -47,6 +50,7 @@ public final class NotchModule: FeatureModule {
         isRunning = true
         NotchServices.shared.start()
         NotchServices.shared.nowPlaying.isEnabled = settings.liveActivities.enabledProviders.contains("nowPlaying")
+        applyAudioLevelState()
         rebuildControllers()
 
         screenObserver = NotificationCenter.default.addObserver(
@@ -165,9 +169,19 @@ public final class NotchModule: FeatureModule {
         spaceStateChanged(SpaceStateObserver.shared.state)
     }
 
+    /// The tap on system audio exists only while it is wanted and there is something to show: the setting on,
+    /// the module running, and an item actually playing.
+    private func applyAudioLevelState() {
+        let services = NotchServices.shared
+        services.audioLevels.isEnabled = isRunning && settings.audioReactiveBars
+            && settings.liveActivities.enabledProviders.contains("nowPlaying")
+            && services.nowPlaying.track?.isPlaying == true
+    }
+
     private func applySettings() {
         activities.settings = settings.liveActivities
         NotchServices.shared.nowPlaying.isEnabled = isRunning && settings.liveActivities.enabledProviders.contains("nowPlaying")
+        applyAudioLevelState()
         let geometries = Dictionary(uniqueKeysWithValues: DisplayGeometry.all().map { ($0.displayID, $0) })
         for (id, controller) in controllers {
             if let geometry = geometries[id] { controller.apply(settings: settings, geometry: geometry) }
