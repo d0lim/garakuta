@@ -42,7 +42,7 @@ public actor WindowCapture {
     }
 
     /// True when the image is (nearly) a single colour, sampled on a coarse grid.
-    static func isFlat(_ image: CGImage) -> Bool {
+    public static func isFlat(_ image: CGImage) -> Bool {
         let side = 8
         guard let context = CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
                                       space: CGColorSpaceCreateDeviceRGB(),

@@ -23,5 +23,6 @@ let package = Package(
         .target(name: "WindowSwitcherKit", dependencies: ["GarakutaCore", "PrivateAPIs"]),
         .testTarget(name: "GarakutaCoreTests", dependencies: ["GarakutaCore"]),
         .testTarget(name: "PrivateAPIsTests", dependencies: ["PrivateAPIs"]),
+        .testTarget(name: "WindowSwitcherKitTests", dependencies: ["WindowSwitcherKit"]),
     ]
 )

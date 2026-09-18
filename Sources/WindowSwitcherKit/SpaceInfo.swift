@@ -23,6 +23,22 @@ struct SpaceInfo: Sendable {
         return displays
     }
 
+    /// 1-based position of every user Space on its display, in the order the system lists them.
+    func spaceNumbers() -> [UInt64: Int] {
+        var result: [UInt64: Int] = [:]
+        for display in managedDisplays() {
+            var number = 0
+            for space in display["Spaces"] as? [[String: Any]] ?? [] {
+                guard let id = spaceID(from: space) else { continue }
+                let type = (space["type"] as? NSNumber)?.intValue ?? GKSpaceTypeUser
+                guard type == GKSpaceTypeUser else { continue }
+                number += 1
+                result[id] = number
+            }
+        }
+        return result
+    }
+
     /// Space ids currently shown, one per display.
     func currentSpaceIDs() -> Set<UInt64> {
         var result: Set<UInt64> = []

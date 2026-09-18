@@ -1,7 +1,8 @@
 import AppKit
 import ApplicationServices
 
-/// Brings a chosen window to the front, un-minimizing it and switching Space when needed.
+/// Brings a chosen window to the front, un-minimizing it and switching Space when needed, and performs the other
+/// window commands the switcher offers while open.
 @MainActor
 struct WindowActivator {
     // SpaceInfo is stateless; kept as a property for readability.
@@ -38,5 +39,46 @@ struct WindowActivator {
             return AX.perform(button, kAXPressAction)
         }
         return false
+    }
+
+    /// Minimizes the window, or restores it when it is minimized.
+    @discardableResult
+    func toggleMinimized(_ window: SwitcherWindow, element: AXUIElement?) -> Bool {
+        guard let element, !window.isAppPlaceholder else { return false }
+        if window.isFullScreen && !window.isMinimized {
+            // Minimizing is ignored while full screen; leave full screen first and let the animation finish.
+            AX.set(element, "AXFullScreen", false)
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
+                AX.set(element, kAXMinimizedAttribute, true)
+            }
+            return true
+        }
+        return AX.set(element, kAXMinimizedAttribute, !window.isMinimized)
+    }
+
+    @discardableResult
+    func toggleFullScreen(_ window: SwitcherWindow, element: AXUIElement?) -> Bool {
+        guard let element, !window.isAppPlaceholder else { return false }
+        return AX.set(element, "AXFullScreen", !window.isFullScreen)
+    }
+
+    /// Hides the app, or shows it again when it is hidden.
+    @discardableResult
+    func toggleAppHidden(_ window: SwitcherWindow) -> Bool {
+        guard let app = NSRunningApplication(processIdentifier: window.pid) else { return false }
+        return app.isHidden ? app.unhide() : app.hide()
+    }
+
+    /// Asks the app to quit, as ⌘Q would.
+    @discardableResult
+    func quitApp(_ window: SwitcherWindow) -> Bool {
+        NSRunningApplication(processIdentifier: window.pid)?.terminate() ?? false
+    }
+
+    /// Puts the pointer in the middle of the window (CG coordinates).
+    func movePointer(to window: SwitcherWindow) {
+        guard window.frame.width > 0, window.frame.height > 0 else { return }
+        CGWarpMouseCursorPosition(CGPoint(x: window.frame.midX, y: window.frame.midY))
     }
 }

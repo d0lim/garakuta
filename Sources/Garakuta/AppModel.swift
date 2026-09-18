@@ -26,7 +26,10 @@ final class AppModel: ObservableObject {
 
     func refreshPermissions() {
         let granted = Set(Permission.allCases.filter(\.isGranted))
-        if granted != grantedPermissions { grantedPermissions = granted }
+        if granted != grantedPermissions {
+            grantedPermissions = granted
+            switcher.permissionsMayHaveChanged()
+        }
         if !granted.contains(.screenRecording) {
             Task { @MainActor [weak self] in
                 if await Permission.probeScreenRecording() { self?.refreshPermissions() }

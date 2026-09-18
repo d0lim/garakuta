@@ -10,11 +10,11 @@ A menu bar organizer, a notch panel and a window switcher for macOS in one small
 
 ## What it does
 
-**Menu bar** — hide icons behind a separator, keep an always-hidden section, reveal them by hover, click, scroll or hotkey, and browse hidden icons in a bar below the menu bar (also under the notch). Icons can be auto-hidden when the menu bar runs out of room, grouped, or spaced out. Works on macOS 26, where every status item is hosted by Control Center and has to be discovered through Accessibility.
+**Menu bar** — hide icons behind a separator, keep an always-hidden section, reveal them by hover, click, scroll or hotkey, and browse hidden icons in a bar below the menu bar (also under the notch). Icons can be auto-hidden when the menu bar runs out of room, grouped, or spaced out. Works on macOS 26, where every status item is hosted by Control Center and has to be discovered through Accessibility. On macOS 27 the system handles overflow itself and an app can no longer hide icons, so hiding is switched off there; spacers, groups and the ⌘-drag guide remain.
 
 **Notch panel** — an island-style panel on every display: now-playing controls for whatever app is playing (music players, browsers, podcasts, video), a timer, battery, and a shelf you can drop files on and share, compress or drag out again later. Hover, click, swipe and drag gestures, per-display appearance, full-screen and Mission Control rules, and it can stay out of screenshots and screen sharing.
 
-**Window switcher** — hold ⌥⇥ to see every window with live thumbnails, including minimized windows and windows on other Spaces. Type to filter. Per-app rules, a titles-only mode and a choice of which display it opens on.
+**Window switcher** — hold ⌥⇥ to see every window, most recently used first, with live thumbnails that keep each window's shape, including minimized windows and windows on other Spaces. Type to filter with ranked matches, hold ⇥ to keep cycling, close, minimize, hide or quit from the switcher, drop files on a tile to open them there, and preview the selected window at full size. Three styles (thumbnails, app icons, titles), a second shortcut for the active app's windows, per-app rules and a choice of which display it opens on.
 
 A first-launch setup assistant walks through feature bundles, conflicting utilities, permissions and a live tour of each module.
 
@@ -46,7 +46,7 @@ Then grant Accessibility (and, if you want icon captures and thumbnails, Screen 
 
 | Permission | Needed for | Without it |
 | --- | --- | --- |
-| Accessibility | Listing and moving other apps' menu bar icons, clicking them from the hidden-items bar, minimized windows, releasing ⌥ to select | Sections still hide and reveal; you ⌘-drag icons yourself; the switcher cycles with repeated ⌥⇥ and selects with Return |
+| Accessibility | Listing and moving other apps' menu bar icons, clicking them from the hidden-items bar, window titles, minimized windows, the most-recently-used order, releasing ⌥ to select | Sections still hide and reveal; you ⌘-drag icons yourself; the switcher lists windows front to back, cycles with repeated ⌥⇥ and selects with Return |
 | Screen Recording | Real icon images and window thumbnails | App icons and titles |
 | Automation | Song titles of media playing in a browser tab; Music and Spotify polling when the bundled helper cannot run | Browsers show as playing without a title |
 

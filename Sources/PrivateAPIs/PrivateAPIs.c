@@ -21,6 +21,7 @@ typedef CGError (*PostEventRecordToFn)(ProcessSerialNumber *, uint8_t *);
 typedef AXError (*AXUIElementGetWindowFn)(AXUIElementRef, CGWindowID *);
 typedef OSStatus (*GetProcessForPIDFn)(pid_t, ProcessSerialNumber *);
 typedef OSStatus (*GetProcessPIDFn)(const ProcessSerialNumber *, pid_t *);
+typedef CFArrayRef (*HWCaptureWindowListFn)(CGSConnectionID, CGWindowID *, uint32_t, uint32_t);
 
 static bool gLoaded = false;
 static char gMissing[512];
@@ -41,6 +42,8 @@ static PostEventRecordToFn gPostEventRecordTo;
 static AXUIElementGetWindowFn gAXUIElementGetWindow;
 static GetProcessForPIDFn gGetProcessForPID;
 static GetProcessPIDFn gGetProcessPID;
+/// Optional: resolved when present, never reported as missing.
+static HWCaptureWindowListFn gHWCaptureWindowList;
 
 static void *resolve(void *handle, const char *name) {
     void *p = dlsym(handle, name);
@@ -76,6 +79,8 @@ bool GKPrivateAPIsLoad(void) {
     gAXUIElementGetWindow = (AXUIElementGetWindowFn)resolve(his, "_AXUIElementGetWindow");
     gGetProcessForPID = (GetProcessForPIDFn)resolve(his, "GetProcessForPID");
     gGetProcessPID = (GetProcessPIDFn)resolve(his, "GetProcessPID");
+    gHWCaptureWindowList = (HWCaptureWindowListFn)dlsym(sky, "SLSHWCaptureWindowList");
+    if (!gHWCaptureWindowList) gHWCaptureWindowList = (HWCaptureWindowListFn)dlsym(sky, "CGSHWCaptureWindowList");
     gLoaded = gMissing[0] == 0;
     return gLoaded;
 }
@@ -151,4 +156,22 @@ void GKMakeKeyWindow(ProcessSerialNumber *psn, CGWindowID wid) {
 bool GKAXUIElementGetWindow(AXUIElementRef element, CGWindowID *out) {
     if (!gLoaded || !element || !out) return false;
     return gAXUIElementGetWindow(element, out) == kAXErrorSuccess;
+}
+
+bool GKHWCaptureAvailable(void) { return gLoaded && gHWCaptureWindowList != NULL; }
+
+/// Capture option bits: 1<<11 ignores the global clip shape (rounded corners are kept), 1<<8 asks for the
+/// backing-store resolution and 1<<9 for point resolution, 1<<19 for the whole window rather than a crop.
+CGImageRef GKHWCaptureWindow(CGSConnectionID cid, CGWindowID wid, bool bestResolution) {
+    if (!gLoaded || !gHWCaptureWindowList) return NULL;
+    CGWindowID w = wid;
+    uint32_t options = (1u << 11) | (bestResolution ? (1u << 8) : (1u << 9)) | (1u << 19);
+    CFArrayRef list = gHWCaptureWindowList(cid, &w, 1, options);
+    if (!list) return NULL;
+    CGImageRef image = NULL;
+    if (CFArrayGetCount(list) > 0) {
+        image = (CGImageRef)CFRetain(CFArrayGetValueAtIndex(list, 0));
+    }
+    CFRelease(list);
+    return image;
 }

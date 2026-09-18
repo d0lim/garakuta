@@ -70,4 +70,13 @@ void GKMakeKeyWindow(ProcessSerialNumber *psn, CGWindowID wid);
 /// CGWindowID backing an AXUIElement window (HIServices _AXUIElementGetWindow). Returns false on failure.
 bool GKAXUIElementGetWindow(AXUIElementRef element, CGWindowID *outWindowID);
 
+// Capture
+/// True when the window server's own capture call resolved. Optional: its absence does not fail GKPrivateAPIsLoad.
+bool GKHWCaptureAvailable(void);
+/// Captures one window through the window server (SkyLight SLSHWCaptureWindowList). Unlike ScreenCaptureKit it
+/// returns the content of minimized windows and of windows on another Space instead of a blank frame.
+/// `bestResolution` asks for the backing-store scale, otherwise nominal (point) size. NULL when unavailable or
+/// the window has no surface. The caller owns the returned image.
+CF_RETURNS_RETAINED CGImageRef GKHWCaptureWindow(CGSConnectionID cid, CGWindowID wid, bool bestResolution);
+
 #endif

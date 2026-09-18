@@ -94,20 +94,30 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 
 | # | Action | Expected |
 | --- | --- | --- |
-| W01-1 | Hold `⌥⇥` | The switcher appears after the delay. `⇥` moves forward, `⇧⇥` backward. |
+| W01-1 | Hold `⌥⇥` | The switcher appears after the delay. `⇥` moves forward, `⇧⇥` backward; `↑`/`↓` move between rows. Holding `⇥` keeps cycling at the system key repeat rate. |
 | W01-2 | Release `⌥` | The selected window comes to the front. Minimized windows are restored. |
 | W01-3 | Select a window on another Space | Switches to that Space and brings the window forward. Without the private symbols only the app is activated. |
-| W01-4 | Type while open | Filters by title and app name. Esc cancels. |
-| W01-5 | Allow Screen Recording | Live thumbnails refresh roughly every 250 ms. Icons otherwise. The grid uses as many columns as fit in 80% of the screen width. |
+| W01-4 | Type while open | Filters by title and app name, best matches first, matched letters marked. Esc cancels. |
+| W01-5 | Allow Screen Recording | Tiles show thumbnails in each window's shape, refreshed roughly every 250 ms; minimized and other-Space windows have pictures too. Icons otherwise. Tiles wrap into rows within a comfortable width. |
 | W01-6 | Middle-click (when enabled) | Closes the window. |
-| W02-1 | Simple mode | Titles and icons only, no thumbnails. |
-| W02-2 | Add app rules (Group as one / Exclude / Include even without windows) | One tile per app / removed from the list / apps without windows shown. |
+| W01-7 | Use two windows, then open the switcher | The window you were in is first; the one you used before it is selected. Opening again after switching lists them in the new order. |
+| W01-8 | Open the switcher with the pointer resting over the grid | The selection does not jump until the pointer moves. |
+| W01-9 | `⌘M`, `⌘F`, `⌘H`, `⌘Q` while open | The selected window is minimized or restored, enters or leaves full screen, its app is hidden or shown, its app quits. The selection stays on that window. |
+| W01-10 | Drag a file from Finder onto a tile | The tile outlines green; dropping opens the file in that app. |
+| W02-1 | Style: Titles / App icons | A single column of titles / one row of large icons. |
+| W02-2 | Add app rules (Group as one / Exclude / Include even without windows / Let the app have the shortcut) | One tile per app / removed from the list / apps without windows shown / `⌥⇥` reaches the app while it is frontmost. |
 | W02-3 | Change the target display (pointer, menu bar, active window) | The switcher appears on that display. |
 | W02-4 | Current Space only | Windows on other Spaces disappear from the list. |
+| W02-5 | Enable the second shortcut (default `` ⌥` ``) | Lists only the active app's windows. |
+| W02-6 | Enable the preview | The selected window is shown full size behind the panel while it is on the current Space. |
+| W02-7 | Size: Small / Medium / Large / Automatic | Five, four or three rows of tiles; Automatic picks the largest that fits. |
+
+## macOS 27 rehearsal
+
+Run with `GARAKUTA_ASSUME_SYSTEM_OVERFLOW=1`: the menu bar item is an app menu (no chevron, no dividers), the Menu Bar settings tab opens with a "Managed by macOS" note and without the reveal, bar and auto-hide sections, and the setup assistant's menu bar step describes the system's overflow button. Spacers and groups still work.
 
 ## Known limitations
 
 - On macOS 26, if item moves fail intermittently, run `killall ControlCenter` and retry.
 - External displays report a zero-height menu bar through `NSScreen.visibleFrame`; the status bar thickness is used instead.
 - Capture detection for N07's auto-hide is a heuristic based on capture app bundle IDs. `sharingType = .none` is the reliable part.
-- The switcher panel can get narrow with few windows; a 240pt-wide panel was observed with a short list.

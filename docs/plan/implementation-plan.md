@@ -95,14 +95,15 @@ Permissions: Automation only for the AppleScript media fallback. No other N feat
 
 | ID | Implementation |
 | --- | --- |
-| W01 | `⌥Tab` is intercepted with a global hotkey. The window list merges three sources: `CGWindowListCopyWindowInfo` (visible windows on the current Space), each app's `AXUIElement` tree (minimized windows, titles) and private SkyLight `CGSCopyWindowsWithOptionsAndTags` / `CGSCopySpacesForWindows` (windows on other Spaces and full-screen windows). Thumbnails are per-window captures via `SCScreenshotManager`, refreshed only while open. Search matches title and app name. Focus uses `AXRaise` plus `NSRunningApplication.activate`; windows on other Spaces are brought forward individually with private `_SLPSSetFrontProcessWithOptions`. |
-| W02 | Simple mode (no thumbnails, no Screen Recording needed), per-app rules (include apps without windows, exclude, group as one), target display (pointer, menu bar or active window) and a current-Space-only filter. |
+| W01 | `⌥Tab` is intercepted with a global hotkey. The window list merges three sources: `CGWindowListCopyWindowInfo` (visible windows on the current Space), each app's `AXUIElement` tree (minimized windows, titles; apps are read in parallel with a short timeout) and private SkyLight `CGSCopyWindowsWithOptionsAndTags` / `CGSCopySpacesForWindows` (windows on other Spaces and full-screen windows). The list is kept warm between presses: one `AXObserver` per app reports window creation, destruction, title changes, minimizing and focus changes, and workspace notifications cover launches, quits, activation and Space changes; a press shows the current list at once and a coalesced rescan confirms it. Windows are ordered by last focus (stacking order and alphabetical are options). Thumbnails come from `SCScreenshotManager`, or from the window server's own capture call for minimized and other-Space windows; they are cached between sessions and the window that just took focus is refreshed in the background. Search ranks matches in tiers and marks matched letters. Focus uses `AXRaise` plus `NSRunningApplication.activate`; windows on other Spaces are brought forward individually with private `_SLPSSetFrontProcessWithOptions`. |
+| W02 | Styles (thumbnails, app icons, titles), size presets by row count with an automatic choice, per-app rules (include apps without windows, exclude, group as one, let the app have the shortcut), a second shortcut for the active app's windows, target display (pointer, menu bar or active window), a current-Space-only filter, tab grouping, Space numbers and Dock badges, a full-size preview of the selected window, window commands while open (close, minimize, full screen, hide, quit), file drops onto tiles, and pointer follow. |
 
 Permissions: Accessibility (required for the full experience), Screen Recording (thumbnail mode only).
 
 Risks
 - Private SkyLight functions can break with any OS update. They all live in the `PrivateAPIs` target, and a missing symbol degrades to public-API-only behaviour.
 - `SCScreenshotManager` is asynchronous; calling it on every mouse move causes lag. Thumbnails are cached per window and refreshed at a limited rate while the switcher is open.
+- On macOS 27 the menu bar is one window with its own overflow button; a status item cannot push others off screen. `MenuBarHost.systemManagesOverflow` switches the sections, reveal triggers, hidden items bar and auto-arranger off there. `GARAKUTA_ASSUME_SYSTEM_OVERFLOW=1` rehearses that mode on an older system.
 
 ## 4. Permission matrix
 

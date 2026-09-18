@@ -4,6 +4,34 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- Window switcher: windows are listed in the order they were last used, kept current from app events rather
+  than rescanned on every press, so the list is ready when the shortcut is pressed and does not reorder under
+  the pointer. Front to back and alphabetical orders remain as options.
+- Window switcher: tiles keep each window's shape and wrap into rows; the size setting chooses the number of
+  rows, and Automatic picks the largest that fits. Two more styles: a single row of app icons, and a column of
+  titles (the former simple mode).
+- Window switcher: thumbnails stay cached between openings and the window that just took focus is refreshed
+  in the background. Minimized windows and windows on other Spaces get real pictures through the window server.
+- Window switcher: a search that ranks matches (whole word, prefix, word start, substring, initials) and marks
+  the matched letters; hold the trigger key to keep cycling; ⌘M minimizes, ⌘F toggles full screen, ⌘H hides the
+  app and ⌘Q quits it while the switcher is open; files dropped on a tile open in that app.
+- Window switcher: an optional full-size preview of the selected window behind the panel, Space numbers and Dock
+  badges on tiles, a second shortcut for the active app's windows, a per-app rule that hands the shortcut to the
+  app while it is frontmost (virtual machines, remote desktops), tabs of one window shown as one tile, an
+  option to move the pointer to the chosen window, and a choice of where long titles are truncated.
+
+### Changed
+
+- Window switcher: hovering selects a tile only once the pointer has moved since the panel appeared, so a
+  pointer resting over the grid does not steal the selection. Up and down arrows move between rows.
+- Window switcher: windows that sit on no Space and are not minimized (an app's hidden helper windows) are no
+  longer listed.
+- Menu bar: on macOS 27, where the system tucks overflowing icons behind its own button and an app can no
+  longer push icons off screen, the hidden sections, reveal triggers, hidden items bar and automatic hiding are
+  switched off. The menu bar item becomes the app menu, and spacers, groups and the ⌘-drag guide remain.
+
 ## [0.4.0] - 2026-09-17
 
 ### Changed

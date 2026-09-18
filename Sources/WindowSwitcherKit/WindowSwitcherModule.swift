@@ -18,15 +18,24 @@ public final class WindowSwitcherModule: FeatureModule {
     public var settings: SwitcherSettings {
         get { controller.state.settings }
         set {
-            let triggerChanged = controller.state.settings.trigger != newValue.trigger
+            let old = controller.state.settings
             controller.state.settings = newValue
             SettingsStore.shared.save(newValue, for: SwitcherSettings.storeKey)
-            if isRunning && triggerChanged { registerHotKeys() }
+            if isRunning, old.trigger != newValue.trigger || old.appWindowsTrigger != newValue.appWindowsTrigger || old.appRules != newValue.appRules {
+                registerHotKeys()
+            }
+            if isRunning, old.windowOrder != newValue.windowOrder || old.groupTabs != newValue.groupTabs || old.showSpaceNumbers != newValue.showSpaceNumbers
+                || old.showDockBadges != newValue.showDockBadges || old.appRules != newValue.appRules {
+                controller.requestRefresh()
+            }
         }
     }
 
     private let controller = SwitcherController()
     private var hotKeyTokens: [UInt32] = []
+    private var activationObserver: NSObjectProtocol?
+    /// True while the frontmost app has the "let the app have the shortcut" rule and our hot keys are unregistered.
+    private var shortcutYielded = false
 
     public init() {
         controller.state.settings = SettingsStore.shared.load(SwitcherSettings.storeKey, default: SwitcherSettings())
@@ -39,19 +48,36 @@ public final class WindowSwitcherModule: FeatureModule {
             NSLog("WindowSwitcher: private symbols missing (%@); other Spaces disabled", missingPrivateSymbols)
         }
         registerHotKeys()
-        controller.refreshWindows()  // warm the cache so the first press shows a list immediately
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { note in
+            let bundleID = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+            MainActor.assumeIsolated { WindowSwitcherModule.active?.frontmostChanged(bundleID: bundleID) }
+        }
+        WindowSwitcherModule.active = self
+        controller.start()  // warms the cache so the first press shows a list immediately
         isRunning = true
     }
 
     public func stop() {
-        controller.hide()
+        controller.stop()
         unregisterHotKeys()
+        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
+        activationObserver = nil
+        if WindowSwitcherModule.active === self { WindowSwitcherModule.active = nil }
         isRunning = false
     }
 
+    private static var active: WindowSwitcherModule?
+
     /// Opens the switcher (or cycles when already open), as the hotkey does.
     public func show(reverse: Bool = false) {
-        controller.trigger(reverse: reverse)
+        controller.trigger(settings.trigger, reverse: reverse, appWindowsOnly: false)
+    }
+
+    /// Opens the switcher listing only the active app's windows.
+    public func showAppWindows(reverse: Bool = false) {
+        controller.trigger(settings.appWindowsTrigger ?? settings.trigger, reverse: reverse, appWindowsOnly: true)
     }
 
     public func hide() {
@@ -59,6 +85,12 @@ public final class WindowSwitcherModule: FeatureModule {
     }
 
     public var isVisible: Bool { controller.isOpen }
+
+    /// Call when Accessibility may have been granted, so observers reach apps that were already running.
+    public func permissionsMayHaveChanged() {
+        guard isRunning else { return }
+        controller.accessibilityMayHaveChanged()
+    }
 
     /// True when the system refused the trigger shortcut, which means another app registered the same hot key.
     /// Switchers that intercept keys with an event tap instead are not detected this way.
@@ -68,18 +100,51 @@ public final class WindowSwitcherModule: FeatureModule {
         SwitcherSettingsView(settings: settings) { [weak self] new in self?.settings = new }
     }
 
+    // MARK: Hot keys
+
+    /// An app with the pass-through rule keeps the shortcut while it is frontmost (virtual machines and remote
+    /// desktops want ⌥⇥ for the other system).
+    private func frontmostChanged(bundleID: String?) {
+        let yield = settings.rule(for: bundleID) == .passShortcutThrough
+        guard yield != shortcutYielded else { return }
+        shortcutYielded = yield
+        if yield {
+            unregisterHotKeys()
+        } else {
+            registerHotKeys()
+        }
+    }
+
     private func registerHotKeys() {
         unregisterHotKeys()
+        if shortcutYielded { return }
         let settings = controller.state.settings
-        if let t = HotKeyCenter.shared.register(settings.trigger, handler: { [weak self] in self?.controller.trigger(reverse: false) }) {
+        let trigger = settings.trigger
+        if let t = HotKeyCenter.shared.register(trigger, handler: { [weak self] in
+            self?.controller.trigger(trigger, reverse: false, appWindowsOnly: false)
+        }) {
             hotKeyTokens.append(t)
             hotKeyConflict = false
         } else {
             hotKeyConflict = true
-            NSLog("WindowSwitcher: could not register %@ (in use by another app?)", settings.trigger.displayString)
+            NSLog("WindowSwitcher: could not register %@ (in use by another app?)", trigger.displayString)
         }
-        if let t = HotKeyCenter.shared.register(settings.reverseTrigger, handler: { [weak self] in self?.controller.trigger(reverse: true) }) {
+        if let t = HotKeyCenter.shared.register(settings.reverseTrigger, handler: { [weak self] in
+            self?.controller.trigger(trigger, reverse: true, appWindowsOnly: false)
+        }) {
             hotKeyTokens.append(t)
+        }
+        if let appTrigger = settings.appWindowsTrigger {
+            if let t = HotKeyCenter.shared.register(appTrigger, handler: { [weak self] in
+                self?.controller.trigger(appTrigger, reverse: false, appWindowsOnly: true)
+            }) {
+                hotKeyTokens.append(t)
+            }
+            if let t = HotKeyCenter.shared.register(SwitcherSettings.reverse(of: appTrigger), handler: { [weak self] in
+                self?.controller.trigger(appTrigger, reverse: true, appWindowsOnly: true)
+            }) {
+                hotKeyTokens.append(t)
+            }
         }
     }
 
