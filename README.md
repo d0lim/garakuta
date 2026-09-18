@@ -46,7 +46,7 @@ Then grant Accessibility (and, if you want icon captures and thumbnails, Screen 
 
 | Permission | Needed for | Without it |
 | --- | --- | --- |
-| Accessibility | Listing and moving other apps' menu bar icons, clicking them from the hidden-items bar, window titles, minimized windows, the most-recently-used order, releasing ⌥ to select | Sections still hide and reveal; you ⌘-drag icons yourself; the switcher lists windows front to back, cycles with repeated ⌥⇥ and selects with Return |
+| Accessibility | Listing and moving other apps' menu bar icons, clicking them from the hidden-items bar, window titles, minimized windows, the most-recently-used order, releasing ⌥ to select, taking ⌘⇥ from the system switcher | Sections still hide and reveal; you ⌘-drag icons yourself; the switcher lists windows front to back, cycles with repeated ⌥⇥ and selects with Return |
 | Screen Recording | Real icon images and window thumbnails | App icons and titles |
 | Automation | Song titles of media playing in a browser tab; Music and Spotify polling when the bundled helper cannot run | Browsers show as playing without a title |
 

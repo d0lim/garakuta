@@ -27,7 +27,9 @@ struct GeneralSettingsView: View {
                             .foregroundStyle(.orange)
                     }
                     if model.switcher.hotKeyConflict {
-                        Label("Another app already owns the switcher shortcut \(model.switcher.settings.trigger.displayString). Quit it or pick a different shortcut in the Switcher tab.",
+                        Label(HotKeyCenter.needsEventTap(model.switcher.settings.trigger) && !Permission.accessibility.isGranted
+                              ? "The switcher shortcut \(model.switcher.settings.trigger.displayString) needs Accessibility permission to be taken from the system."
+                              : "Another app already owns the switcher shortcut \(model.switcher.settings.trigger.displayString). Quit it or pick a different shortcut in the Switcher tab.",
                               systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
                     }

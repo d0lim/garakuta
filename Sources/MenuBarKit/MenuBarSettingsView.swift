@@ -257,46 +257,31 @@ public struct MenuBarSettingsView: View {
     }
 }
 
-/// Click, then press a key combination. Backspace clears.
+/// Click, then press a key combination. Registered shortcuts are suspended while recording so the current one
+/// can be pressed and recorded rather than fired.
 struct HotKeyRecorder: View {
     @Binding var combo: KeyCombo?
     @State private var recording = false
-    @State private var monitor: Any?
 
     var body: some View {
         HStack {
             Button(recording ? "Press keys…" : (combo?.displayString ?? "None")) {
-                if recording { stop() } else { start() }
+                if recording {
+                    HotKeyCenter.shared.cancelRecording()
+                    recording = false
+                } else {
+                    recording = true
+                    HotKeyCenter.shared.recordNextKey { new in
+                        recording = false
+                        if let new { combo = new }
+                    }
+                }
             }
             .frame(minWidth: 110)
             if combo != nil, !recording {
                 Button { combo = nil } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.borderless)
             }
         }
-        .onDisappear { stop() }
-    }
-
-    private func start() {
-        recording = true
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            let keyCode = UInt32(event.keyCode)
-            let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
-            MainActor.assumeIsolated {
-                if keyCode == 51 || keyCode == 117 {  // delete / forward delete clears
-                    combo = nil
-                } else if keyCode == 53 {  // escape cancels
-                } else {
-                    combo = KeyCombo(keyCode: keyCode, nsModifiers: flags)
-                }
-                stop()
-            }
-            return nil
-        }
-    }
-
-    private func stop() {
-        recording = false
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
+        .onDisappear { if recording { HotKeyCenter.shared.cancelRecording() } }
     }
 }

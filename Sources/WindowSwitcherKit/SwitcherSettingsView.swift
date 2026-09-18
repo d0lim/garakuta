@@ -51,6 +51,18 @@ public struct SwitcherSettingsView: View {
                     .frame(width: 140, height: 24)
             }
             Text("Add ⇧ to the shortcut to cycle backwards. Hold the key to keep cycling.").font(.caption).foregroundStyle(.secondary)
+            if HotKeyCenter.needsEventTap(settings.trigger) || settings.appWindowsTrigger.map(HotKeyCenter.needsEventTap) == true {
+                if Permission.accessibility.isGranted {
+                    Text("⌘⇥ is taken from the system switcher while Garakuta runs; it comes back when Garakuta quits.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    HStack {
+                        Text("⌘⇥ can only be taken with Accessibility permission. Until then the shortcut does nothing.")
+                            .font(.caption).foregroundStyle(.orange)
+                        Button("Grant…") { Permission.accessibility.request() }.controlSize(.small)
+                    }
+                }
+            }
             Toggle("Second shortcut for the active app's windows only", isOn: $appWindowsShortcutEnabled)
                 .onChange(of: appWindowsShortcutEnabled) { _, on in
                     settings.appWindowsTrigger = on ? (settings.appWindowsTrigger ?? KeyCombo(keyCode: UInt32(kVK_ANSI_Grave), modifiers: UInt32(optionKey))) : nil
@@ -237,53 +249,26 @@ public struct SwitcherSettingsView: View {
     }
 }
 
-/// Click, then press a key combination. Esc cancels.
-struct HotKeyRecorder: NSViewRepresentable {
+/// Click, then press a key combination. Esc cancels. Registered shortcuts are suspended while recording so the
+/// current one can be pressed and recorded rather than fired; with Accessibility even ⌘⇥ can be recorded.
+struct HotKeyRecorder: View {
     @Binding var combo: KeyCombo
+    @State private var recording = false
 
-    func makeNSView(context: Context) -> RecorderView {
-        let view = RecorderView()
-        view.onRecord = { combo = $0 }
-        view.combo = combo
-        return view
-    }
-
-    func updateNSView(_ nsView: RecorderView, context: Context) {
-        nsView.combo = combo
-        nsView.needsDisplay = true
-    }
-
-    final class RecorderView: NSView {
-        var combo = KeyCombo(keyCode: 0, modifiers: 0)
-        var onRecord: ((KeyCombo) -> Void)?
-        private var recording = false { didSet { needsDisplay = true } }
-
-        override var acceptsFirstResponder: Bool { true }
-        override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self); recording = true }
-        override func resignFirstResponder() -> Bool { recording = false; return true }
-
-        override func keyDown(with event: NSEvent) {
-            guard recording else { super.keyDown(with: event); return }
-            if Int(event.keyCode) == kVK_Escape { recording = false; return }
-            let mods = event.modifierFlags.intersection([.command, .option, .control, .shift])
-            guard !mods.isEmpty else { NSSound.beep(); return }
-            let new = KeyCombo(keyCode: UInt32(event.keyCode), nsModifiers: mods)
-            combo = new
-            onRecord?(new)
-            recording = false
-            window?.makeFirstResponder(nil)
+    var body: some View {
+        Button(recording ? "Press keys…" : combo.displayString) {
+            if recording {
+                HotKeyCenter.shared.cancelRecording()
+                recording = false
+            } else {
+                recording = true
+                HotKeyCenter.shared.recordNextKey { new in
+                    recording = false
+                    if let new { combo = new }
+                }
+            }
         }
-
-        override func draw(_ dirtyRect: NSRect) {
-            let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
-            (recording ? NSColor.controlAccentColor.withAlphaComponent(0.15) : NSColor.controlBackgroundColor).setFill()
-            path.fill()
-            (recording ? NSColor.controlAccentColor : NSColor.separatorColor).setStroke()
-            path.stroke()
-            let text = recording ? "Press keys…" : combo.displayString
-            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.labelColor]
-            let size = text.size(withAttributes: attrs)
-            text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2), withAttributes: attrs)
-        }
+        .frame(minWidth: 110)
+        .onDisappear { if recording { HotKeyCenter.shared.cancelRecording() } }
     }
 }

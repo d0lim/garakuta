@@ -90,6 +90,7 @@ public final class WindowSwitcherModule: FeatureModule {
     public func permissionsMayHaveChanged() {
         guard isRunning else { return }
         controller.accessibilityMayHaveChanged()
+        if hotKeyConflict { registerHotKeys() }
     }
 
     /// True when the system refused the trigger shortcut, which means another app registered the same hot key.

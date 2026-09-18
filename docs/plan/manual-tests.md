@@ -111,6 +111,8 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 | W02-5 | Enable the second shortcut (default `` ⌥` ``) | Lists only the active app's windows. |
 | W02-6 | Enable the preview | The selected window is shown full size behind the panel while it is on the current Space. |
 | W02-7 | Size: Small / Medium / Large / Automatic | Five, four or three rows of tiles; Automatic picks the largest that fits. |
+| W02-8 | Click the shortcut recorder, press the current shortcut | It is recorded (the switcher does not open). Esc cancels. |
+| W02-9 | Record `⌘⇥` (Accessibility granted) | `⌘⇥` opens Garakuta's switcher instead of the system one; `⌘⇧⇥` cycles backwards; releasing `⌘` switches. Quitting Garakuta gives `⌘⇥` back. Without Accessibility the General tab explains why the shortcut does nothing. |
 
 ## macOS 27 rehearsal
 

@@ -4,6 +4,16 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- Window switcher: ⌘⇥ (and ⌘`) can be the trigger. The system keeps these for its own switcher, so with
+  Accessibility permission Garakuta takes them ahead of it; ⌘⇧⇥ cycles backwards as ⌥⇧⇥ does.
+
+### Fixed
+
+- Recording a shortcut suspends the registered ones, so pressing the current shortcut records it instead of
+  opening the switcher or revealing the menu bar. With Accessibility the recorder also accepts ⌘⇥.
+
 ## [0.5.0] - 2026-09-18
 
 ### Added
