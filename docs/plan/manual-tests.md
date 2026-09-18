@@ -13,7 +13,7 @@ Steps to verify by hand what cannot be checked automatically. Matches the code a
 3. Permissions. Turn on `Garakuta` under System Settings → Privacy & Security.
    - Accessibility: all menu bar (M) and window switcher (W) features.
    - Screen Recording (optional): M03 real-icon mode, W01 thumbnails.
-   - Automation: asked for a browser the first time it plays media (its tab title stands in for metadata the system withholds), and for Music/Spotify only when the now-playing helper cannot run (N03).
+   - Automation: for Music/Spotify only when the now-playing helper cannot run, and for a browser's tab title only on systems older than macOS 15.4 (N03).
    - The bundle is ad-hoc signed with a designated requirement based on the bundle identifier, so a grant survives rebuilds. If System Settings shows Garakuta switched on while the app still reports the permission missing, the grant belongs to a copy signed differently: use **Reset…** next to the permission (or `tccutil reset Accessibility com.d0lim.garakuta`) and grant again.
 4. Settings window: right-click the menu bar icon → Settings…. Logs:
    ```sh
@@ -75,7 +75,7 @@ Shown on first launch (no `onboardingCompleted` in `app.json`) or when run with 
 | N01-2 | Click the notch | Opens expanded (shelf). Clicking again closes it. |
 | N02-1 | Reorder and toggle widgets in Settings › Notch | The expanded panel's page composition changes. |
 | N03-1 | Play something in any app that publishes to the system now-playing service (Music, a video player) | The panel goes compact with playback info on both sides; the expanded page shows title, artist, artwork, progress and the app name. Pause: the activity stays for five minutes, then goes away. |
-| N03-1a | Play a YouTube or YouTube Music tab in a browser | The activity appears with the browser's name; after the Automation prompt is allowed, the tab title (song and artist) follows within two seconds. No progress bar, since the system reports no duration. |
+| N03-1a | Play a YouTube or YouTube Music tab in a browser | The activity appears with the browser's name and the real title, artist and progress from the system's media service, with no Automation prompt (macOS 15.4 and later). Artwork falls back to the app icon. On older systems the tab title follows within two seconds once the Automation prompt is allowed. |
 | N03-1b | Quit the app and check `pgrep -f nowplaying.pl` | The helper process exits with the app. |
 | N03-2 | Start the timer widget while playing | Primary and secondary activities show together. |
 | N03-3 | Connect or disconnect the power adapter | The battery activity shows for a few seconds. |

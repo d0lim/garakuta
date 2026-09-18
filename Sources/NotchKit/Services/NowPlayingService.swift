@@ -153,12 +153,14 @@ public final class NowPlayingService {
             if track != nil { artwork = nil; publish(nil) }
             return
         }
-        let app = record.pid > 0 ? NSRunningApplication(processIdentifier: pid_t(record.pid)) : nil
+        // The pid the service names may be a helper process (browsers); the bundle identifier finds the app then.
+        let app = (record.pid > 0 ? NSRunningApplication(processIdentifier: pid_t(record.pid)) : nil)
+            ?? record.bundle.flatMap { NSRunningApplication.runningApplications(withBundleIdentifier: $0).first }
         func string(_ key: String) -> String { info["kMRMediaRemoteNowPlayingInfo\(key)"] as? String ?? "" }
         func number(_ key: String) -> Double? { (info["kMRMediaRemoteNowPlayingInfo\(key)"] as? NSNumber)?.doubleValue }
         var title = string("Title")
         var artist = string("Artist")
-        let browser = BrowserTabTitles.isBrowser(app?.bundleIdentifier)
+        let browser = BrowserTabTitles.isBrowser(app?.bundleIdentifier ?? record.bundle)
         if browser, title.isEmpty {
             if let pick = browserPick {
                 title = pick.title
@@ -362,6 +364,8 @@ final class NowPlayingBridgeClient: @unchecked Sendable {
         var info: [String: Any]
         var playing: Bool
         var pid: Int
+        /// Bundle identifier of the playing app when the helper could name it (macOS 15.4 and later).
+        var bundle: String?
     }
 
     enum Command: Int {
@@ -481,7 +485,8 @@ final class NowPlayingBridgeClient: @unchecked Sendable {
             else { continue }
             let record = Record(info: object["info"] as? [String: Any] ?? [:],
                                 playing: (object["playing"] as? Bool) ?? false,
-                                pid: (object["pid"] as? Int) ?? 0)
+                                pid: (object["pid"] as? Int) ?? 0,
+                                bundle: object["bundle"] as? String)
             Task { @MainActor in self.onRecord?(record) }
         }
     }

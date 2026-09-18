@@ -48,7 +48,7 @@ Then grant Accessibility (and, if you want icon captures and thumbnails, Screen 
 | --- | --- | --- |
 | Accessibility | Listing and moving other apps' menu bar icons, clicking them from the hidden-items bar, window titles, minimized windows, the most-recently-used order, releasing ⌥ to select, taking ⌘⇥ from the system switcher | Sections still hide and reveal; you ⌘-drag icons yourself; the switcher lists windows front to back, cycles with repeated ⌥⇥ and selects with Return |
 | Screen Recording | Real icon images and window thumbnails | App icons and titles |
-| Automation | Song titles of media playing in a browser tab; Music and Spotify polling when the bundled helper cannot run | Browsers show as playing without a title |
+| Automation | Music and Spotify polling when the bundled helper cannot run; browser tab titles on systems older than macOS 15.4 | Browsers show as playing without a title on those systems |
 
 ## Project layout
 

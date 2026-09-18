@@ -9,6 +9,13 @@ All notable changes to Garakuta are listed here. The format follows [Keep a Chan
 - Window switcher: ⌘⇥ (and ⌘`) can be the trigger. The system keeps these for its own switcher, so with
   Accessibility permission Garakuta takes them ahead of it; ⌘⇧⇥ cycles backwards as ⌥⇧⇥ does.
 
+### Changed
+
+- Now Playing reads the current item straight from the system's media service through its request interface
+  (macOS 15.4 and later), which answers for browsers too. Browser playback now shows the real title, artist,
+  album and position without Automation permission; the tab-title fallback remains for systems that lack the
+  interface. Artwork still comes from players that answer the older query, so browser playback shows the app icon.
+
 ### Fixed
 
 - Recording a shortcut suspends the registered ones, so pressing the current shortcut records it instead of
